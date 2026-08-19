@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@simulyn/shared';
@@ -35,6 +35,12 @@ export class SurveyDto {
 @Controller('research')
 export class ResearchController {
   constructor(private readonly research: ResearchService) {}
+
+  @Get('status')
+  @ApiOperation({ summary: 'Whether the current user has given consent / taken the survey' })
+  status(@CurrentUser() user: AuthenticatedUser) {
+    return this.research.status(user.id);
+  }
 
   @Post('consent')
   @HttpCode(HttpStatus.OK)

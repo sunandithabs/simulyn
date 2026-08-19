@@ -36,6 +36,14 @@ export class ResearchService {
     });
   }
 
+  async status(userId: string) {
+    const [consent, survey] = await Promise.all([
+      this.prisma.studyConsent.findUnique({ where: { userId }, select: { userId: true } }),
+      this.prisma.surveyResponse.findUnique({ where: { userId }, select: { userId: true } }),
+    ]);
+    return { consented: !!consent, surveyed: !!survey };
+  }
+
   async recordSurvey(userId: string, susAnswers: number[], freeText?: string) {
     if (susAnswers.length !== 10 || susAnswers.some((a) => a < 1 || a > 5)) {
       throw new BadRequestException('susAnswers must be 10 integers between 1 and 5');

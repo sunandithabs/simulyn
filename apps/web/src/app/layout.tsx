@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 
 import { AuthProvider } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
+import { ConsentGate } from '@/components/research/consent-gate';
 import './globals.css';
 
 const inter = Inter({
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh antialiased">
         <ThemeProvider>
         <AuthProvider>
+          <ConsentGate />
           <div className="relative z-10">{children}</div>
           <Toaster
             position="bottom-right"
