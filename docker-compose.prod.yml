@@ -1,0 +1,65 @@
+# Production stack for the university server.
+#
+# Every secret comes from the environment — copy .env.example to .env on the
+# server and fill it in. The stack refuses to start without the required ones.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-simulyn}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Not published: only the api container needs to reach it.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-simulyn}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-simulyn}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN to the public web address}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434/api/chat}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-phi3}
+      CLOUD_LLM_PROVIDER: ${CLOUD_LLM_PROVIDER:-}
+      CLOUD_LLM_API_KEY: ${CLOUD_LLM_API_KEY:-}
+      EXEC_MAX_CONCURRENCY: ${EXEC_MAX_CONCURRENCY:-20}
+      EXEC_TIMEOUT_MS: ${EXEC_TIMEOUT_MS:-8000}
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # Untrusted code runs in here: cap what one container can take from the box.
+    mem_limit: 4g
+    pids_limit: 512
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL to the public API address}
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

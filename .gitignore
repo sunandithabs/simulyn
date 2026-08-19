@@ -1,0 +1,46 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Monaco is copied out of node_modules by apps/web/scripts/copy-monaco.mjs
+# on predev/prebuild — 13 MB of vendored assets does not belong in git.
+apps/web/public/monaco/
+
+# prisma / database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editors / os
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# misc
+coverage/
+tmp/
+temp/

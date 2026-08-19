@@ -1,0 +1,56 @@
+# Local Docker stack. For the university server use docker-compose.prod.yml.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: simulyn
+      POSTGRES_PASSWORD: simulyn
+      POSTGRES_DB: simulyn
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U simulyn -d simulyn']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgresql://simulyn:simulyn@db:5432/simulyn
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-change-me-too}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      # Ollama runs on the host, not in the compose network.
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434/api/chat}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-phi3}
+      EXEC_MAX_CONCURRENCY: ${EXEC_MAX_CONCURRENCY:-20}
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # Applies the schema, then seeds only when the database is still empty.
+    command: >
+      sh -c "pnpm --filter @simulyn/shared db:postgres:deploy &&
+             node apps/api/dist/main.js"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

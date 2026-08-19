@@ -1,0 +1,20 @@
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+
+# Monaco is re-copied during the image build.
+apps/web/public/monaco
+
+# Never bake a local database or secrets into an image.
+**/*.db
+**/*.db-journal
+**/.env
+**/.env.local
+
+.git
+.gitignore
+**/coverage
+**/*.log
+scratchpad

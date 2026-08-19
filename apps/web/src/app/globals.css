@@ -1,0 +1,372 @@
+@import 'tailwindcss';
+
+/*
+  SIMULYN design tokens.
+
+  The product is half programming lab, half electronics bench, so the surface
+  language is borrowed from lab instruments: a near-black panel, violet as the
+  live/active colour, brass for measured values and hairline rules, and a
+  monospace utility face for every label and unit.
+*/
+@theme {
+  --color-ink: #0a0a14;
+  --color-ink-raised: #11111f;
+  --color-ink-sunken: #07070f;
+
+  --color-violet: #7352b8;
+  --color-violet-lit: #a78bfa;
+  --color-violet-dim: #2a2142;
+
+  --color-brass: #c7a346;
+  --color-brass-lit: #e8cc80;
+  --color-brass-dim: #33291163;
+
+  --color-paper: #e9e9f2;
+  --color-muted: #8b8ba7;
+  --color-faint: #5a5a75;
+
+  --color-trace: #4ade80;
+  --color-fault: #fb7185;
+  --color-warn: #fbbf24;
+
+  --color-line: #ffffff14;
+  --color-line-strong: #ffffff26;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', monospace;
+  --font-display: var(--font-syne), var(--font-sans);
+
+  --radius-panel: 14px;
+
+  --ease-instrument: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /*
+    The ambient bench glow is gone: it was two fixed violet/brass gradients, and
+    a tinted wash over a white page reads as a rendering fault rather than
+    atmosphere. Flat surfaces are also what the LeetCode system expects.
+  */
+
+  ::selection {
+    /* Always blue, so white type is the readable choice in both themes. */
+    background: var(--color-violet);
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-violet-lit);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a40;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3d3d5c;
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* The panel: every card in the product is one of these. */
+  .glass {
+    background: color-mix(in srgb, var(--color-ink-raised) 72%, transparent);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+  }
+
+  .glass-lift {
+    transition:
+      border-color 200ms var(--ease-instrument),
+      transform 200ms var(--ease-instrument),
+      background-color 200ms var(--ease-instrument);
+  }
+  .glass-lift:hover {
+    border-color: var(--color-line-strong);
+    transform: translateY(-2px);
+  }
+
+  /*
+    Instrument label: every unit, axis and eyebrow in the product. Mono, small,
+    letterspaced — the counterweight to the large Inter numerals.
+  */
+  .instrument {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /* Brass hairline used to separate a measurement from its label. */
+  .hairline {
+    background: linear-gradient(90deg, var(--color-brass) 0%, transparent 100%);
+    height: 1px;
+    opacity: 0.5;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* SIMULYN wordmark: violet -> paper -> brass sweep, Syne display face. */
+  .brand-mark {
+    font-family: var(--font-display);
+    background: linear-gradient(
+      90deg,
+      var(--color-violet-lit) 0%,
+      var(--color-violet-lit) 15%,
+      var(--color-paper) 40%,
+      var(--color-paper) 60%,
+      var(--color-brass-lit) 85%,
+      var(--color-brass-lit) 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Ambient bench orbs for the landing page background. */
+  .orb-field {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(2px);
+  }
+  .orb-1 {
+    width: 600px;
+    height: 600px;
+    top: -10%;
+    left: -8%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--color-violet) 28%, transparent) 0%, transparent 70%);
+    animation: orb-drift-1 26s ease-in-out infinite alternate;
+  }
+  .orb-2 {
+    width: 500px;
+    height: 500px;
+    bottom: -5%;
+    right: -5%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--color-brass) 16%, transparent) 0%, transparent 70%);
+    animation: orb-drift-2 32s ease-in-out infinite alternate;
+  }
+  .orb-3 {
+    width: 400px;
+    height: 400px;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--color-violet) 10%, transparent) 0%, transparent 70%);
+    animation: orb-drift-3 20s ease-in-out infinite alternate;
+  }
+  @keyframes orb-drift-1 {
+    to {
+      transform: translate(40px, 30px) scale(1.06);
+    }
+  }
+  @keyframes orb-drift-2 {
+    to {
+      transform: translate(-30px, -40px) scale(1.08);
+    }
+  }
+  @keyframes orb-drift-3 {
+    to {
+      transform: translate(-50%, -50%) translate(20px, -20px) scale(1.04);
+    }
+  }
+}
+
+/*
+  Visualiser motion. CSS only — the drawer slides on a transform, the trigger
+  pulses while unseen, and changed inspector rows flash amber.
+*/
+@keyframes viz-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes viz-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 #a78bfa00;
+    border-color: var(--color-line-strong);
+  }
+  50% {
+    box-shadow: 0 0 0 4px #a78bfa1f;
+    border-color: #a78bfa66;
+  }
+}
+
+@keyframes viz-flash {
+  from {
+    background-color: #fbbf2426;
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.viz-drawer {
+  transform: translateX(100%);
+  transition: transform 320ms var(--ease-instrument);
+  will-change: transform;
+}
+
+.viz-drawer-open {
+  transform: translateX(0);
+  animation: viz-slide-in 320ms var(--ease-instrument);
+}
+
+.viz-pulse {
+  animation: viz-pulse 2s ease-in-out infinite;
+}
+
+.viz-flash {
+  animation: viz-flash 600ms ease-out;
+}
+
+/* Scrubber, matched to the level meter rather than the browser default. */
+.viz-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-ink-sunken);
+  border: 1px solid var(--color-line);
+  cursor: pointer;
+}
+.viz-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 999px;
+  background: var(--color-violet-lit);
+  border: none;
+  cursor: pointer;
+}
+.viz-scrubber::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border-radius: 999px;
+  background: var(--color-violet-lit);
+  border: none;
+  cursor: pointer;
+}
+.viz-scrubber:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Markdown rendered inside problem statements. */
+.prose-lab {
+  color: var(--color-paper);
+  line-height: 1.7;
+}
+.prose-lab p {
+  margin-bottom: 0.9rem;
+}
+.prose-lab strong {
+  color: white;
+  font-weight: 600;
+}
+.prose-lab code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: #ffffff0f;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  padding: 0.1em 0.4em;
+  color: var(--color-brass-lit);
+}
+.prose-lab pre {
+  background: var(--color-ink-sunken);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  padding: 0.9rem;
+  overflow-x: auto;
+  margin-bottom: 0.9rem;
+}
+.prose-lab pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-paper);
+}
+.prose-lab ul,
+.prose-lab ol {
+  margin: 0 0 0.9rem 1.1rem;
+  list-style: disc;
+}
+.prose-lab ol {
+  list-style: decimal;
+}
+.prose-lab li {
+  margin-bottom: 0.35rem;
+}
+.prose-lab h1,
+.prose-lab h2,
+.prose-lab h3 {
+  font-weight: 600;
+  color: white;
+  margin: 1.3rem 0 0.6rem;
+  letter-spacing: -0.01em;
+}
+.prose-lab a {
+  color: var(--color-violet-lit);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

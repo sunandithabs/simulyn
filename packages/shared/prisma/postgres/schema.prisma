@@ -1,0 +1,441 @@
+// GENERATED FILE — do not edit.
+// Produced from prisma/schema.prisma by scripts/generate-postgres-schema.mjs.
+// Edit the base schema, then re-run: pnpm db:postgres:schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── USER MANAGEMENT ──
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String
+  displayName       String
+  avatar            String?
+  role              Role      @default(STUDENT)
+  isActive          Boolean   @default(true)
+  mustChangePassword Boolean  @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  refreshTokens   RefreshToken[]
+  enrollments     Enrollment[]
+  taughtClasses   Class[]          @relation("ClassTeacher")
+  submissions     Submission[]
+  examAttempts    ExamAttempt[]
+  violations      Violation[]
+  gamification    Gamification?
+  badges          UserBadge[]
+  discussions     DiscussionPost[]
+  discussionVotes DiscussionVote[]
+  mentorRequests  MentorRequest[]
+
+  @@index([email])
+  @@index([username])
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+// ── CLASS & ENROLLMENT ──
+
+model Class {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  semester    String?
+  teacherId   String
+  teacher     User     @relation("ClassTeacher", fields: [teacherId], references: [id])
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enrollments      Enrollment[]
+  assignedProblems ClassProblem[]
+  exams            Exam[]
+
+  @@index([teacherId])
+  @@index([code])
+}
+
+model Enrollment {
+  id       String   @id @default(cuid())
+  userId   String
+  classId  String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, classId])
+  @@index([classId])
+}
+
+// ── PROBLEMS & TEST CASES ──
+
+enum ProblemType {
+  PROGRAMMING
+  ELECTRONICS
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Problem {
+  id          String      @id @default(cuid())
+  type        ProblemType
+  difficulty  Difficulty
+  category    String
+  title       String
+  description String
+  constraints String      @default("[]")   // JSON array stored as string (SQLite compat)
+  points      Int         @default(100)
+  tags        String      @default("[]")   // JSON array stored as string
+  isPublished Boolean     @default(false)
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Programming-specific
+  starterCode String?     // JSON: { python: "...", javascript: "...", cpp: "...", java: "..." }
+  harness     String?     // JSON: { funcName: {...}, params: [...], returnType: "..." }
+  examples    String?     // JSON: [{ input, output, explanation }]
+
+  // Electronics-specific
+  params    String?       // JSON: { supply: 12, R1: 10000, ... }
+  questions String?       // JSON: [{ id, text, answer, tolerance }]
+
+  testCases      TestCase[]
+  submissions    Submission[]
+  classProblems  ClassProblem[]
+  examProblems   ExamProblem[]
+  discussions    DiscussionPost[]
+  hints          Hint[]
+
+  @@index([type, difficulty])
+  @@index([category])
+  @@index([createdById])
+}
+
+model TestCase {
+  id        String  @id @default(cuid())
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  input     String
+  expected  String
+  isHidden  Boolean @default(false)
+  order     Int     @default(0)
+
+  @@index([problemId])
+}
+
+model Hint {
+  id        String  @id @default(cuid())
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  level     Int
+  text      String
+
+  @@index([problemId])
+  @@unique([problemId, level])
+}
+
+model ClassProblem {
+  id         String    @id @default(cuid())
+  classId    String
+  problemId  String
+  class      Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  problem    Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  dueDate    DateTime?
+  assignedAt DateTime  @default(now())
+
+  @@unique([classId, problemId])
+}
+
+// ── SUBMISSIONS ──
+
+enum Language {
+  PYTHON
+  JAVASCRIPT
+  CPP
+  JAVA
+}
+
+enum SubmissionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  ERROR
+}
+
+model Submission {
+  id            String           @id @default(cuid())
+  userId        String
+  problemId     String
+  examAttemptId String?
+  user          User             @relation(fields: [userId], references: [id])
+  problem       Problem          @relation(fields: [problemId], references: [id])
+  examAttempt   ExamAttempt?     @relation(fields: [examAttemptId], references: [id])
+
+  code          String
+  language      Language
+  status        SubmissionStatus @default(PENDING)
+  passed        Boolean          @default(false)
+  score         Int              @default(0)
+  compileError  String?
+  executionMs   Int?
+  attemptNumber Int              @default(1)
+  createdAt     DateTime         @default(now())
+
+  testResults TestResult[]
+
+  @@index([userId, problemId])
+  @@index([userId, createdAt])
+  @@index([examAttemptId])
+  @@index([status])
+}
+
+model TestResult {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  input        String
+  expected     String
+  actual       String?
+  passed       Boolean
+  stderr       String?
+  exitCode     Int?
+  timedOut     Boolean    @default(false)
+  executionMs  Int?
+
+  @@index([submissionId])
+}
+
+// ── EXAMS & PROCTORING ──
+
+model Exam {
+  id             String   @id @default(cuid())
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  title          String
+  description    String?
+  durationMin    Int
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  gracePeriodMin Int      @default(5)
+  randomizeOrder Boolean  @default(true)
+  isPublished    Boolean  @default(false)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  problems ExamProblem[]
+  attempts ExamAttempt[]
+
+  @@index([classId])
+  @@index([scheduledStart])
+}
+
+model ExamProblem {
+  id        String  @id @default(cuid())
+  examId    String
+  problemId String
+  exam      Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  problem   Problem @relation(fields: [problemId], references: [id])
+  order     Int     @default(0)
+  points    Int?
+
+  @@unique([examId, problemId])
+}
+
+model ExamAttempt {
+  id             String    @id @default(cuid())
+  examId         String
+  userId         String
+  exam           Exam      @relation(fields: [examId], references: [id])
+  user           User      @relation(fields: [userId], references: [id])
+  startedAt      DateTime  @default(now())
+  submittedAt    DateTime?
+  autoSubmitted  Boolean   @default(false)
+  totalScore     Int       @default(0)
+  questionOrder  String    // JSON array of shuffled problem IDs
+  integrityScore Int       @default(100)
+  // Set automatically once the attempt passes the violation threshold.
+  flagged        Boolean   @default(false)
+
+  // Removed from the exam — automatically past the violation threshold, or by a
+  // proctor. A terminated attempt cannot be reopened until a proctor readmits.
+  terminated       Boolean   @default(false)
+  terminatedAt     DateTime?
+  terminatedReason String?
+  // Username of the proctor who removed them; null when the threshold did it.
+  terminatedBy     String?
+  // Violations recorded before the last readmit. The flag threshold counts only
+  // what came after, so a readmitted student starts from a clean slate.
+  violationBaseline Int      @default(0)
+
+  submissions Submission[]
+  violations  Violation[]
+
+  @@unique([examId, userId])
+  @@index([examId])
+  @@index([userId])
+}
+
+enum ViolationType {
+  COPY
+  PASTE
+  CUT
+  RIGHTCLICK
+  SELECTION
+  DEVTOOLS
+  TABSWITCH
+  BLUR
+  REFRESH
+  CLOSE
+  MULTIMONITOR
+  FULLSCREEN
+  SCREENSHOT
+  MANUAL
+}
+
+model Violation {
+  id            String        @id @default(cuid())
+  examAttemptId String
+  userId        String
+  examAttempt   ExamAttempt   @relation(fields: [examAttemptId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id])
+  typeKey       ViolationType
+  weight        Int
+  codeSnapshot  String?
+  timeRemaining Int?
+  metadata      String?       // JSON
+  createdAt     DateTime      @default(now())
+
+  @@index([examAttemptId])
+  @@index([userId])
+  @@index([typeKey])
+}
+
+// ── GAMIFICATION ──
+
+model Gamification {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  xp             Int       @default(0)
+  level          Int       @default(1)
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastActiveDate DateTime?
+  problemsSolved Int       @default(0)
+  updatedAt      DateTime  @updatedAt
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  key         String      @unique
+  name        String
+  description String
+  icon        String
+  condition   String      // JSON: { type: "problems_solved", threshold: 1 }
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge    Badge    @relation(fields: [badgeId], references: [id])
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+// ── DISCUSSION ──
+
+model DiscussionPost {
+  id        String   @id @default(cuid())
+  problemId String
+  authorId  String
+  parentId  String?
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+  parent    DiscussionPost?  @relation("Replies", fields: [parentId], references: [id])
+  content   String
+  upvotes   Int      @default(0)
+  isPinned  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  replies   DiscussionPost[] @relation("Replies")
+  votes     DiscussionVote[]
+
+  @@index([problemId])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+// One row per (post, voter). `DiscussionPost.upvotes` is the denormalised
+// counter kept in sync with these, so a post can only ever be upvoted once
+// per account.
+model DiscussionVote {
+  id        String         @id @default(cuid())
+  postId    String
+  userId    String
+  post      DiscussionPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+// ── AI MENTOR ──
+
+model MentorRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  problemId String
+  language  Language
+  hintLevel Int
+  codeHash  String
+  response  String
+  provider  String
+  cached    Boolean  @default(false)
+  latencyMs Int?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([codeHash])
+}
