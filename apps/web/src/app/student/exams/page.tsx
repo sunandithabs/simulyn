@@ -39,7 +39,7 @@ export default function StudentExamsPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <div className="student-exams mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <header>
           <span className="instrument">Assessment</span>
           <h1 className="mt-2 text-[26px] leading-tight font-semibold tracking-[-0.03em] text-white">
@@ -68,7 +68,7 @@ export default function StudentExamsPage() {
 
               return (
                 <Link key={exam.id} href={`/student/exams/${exam.id}`} className="block">
-                  <Panel hover className="p-4">
+                  <Panel hover className="exam-card p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">

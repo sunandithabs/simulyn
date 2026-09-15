@@ -3,6 +3,7 @@
 import {
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   Flame,
   Inbox,
   Trophy,
@@ -27,6 +28,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api';
 import type { ExamSummary, GamificationMe, Paginated, SubmissionListRow } from '@/lib/types';
 import { formatClock, relativeTime } from '@/lib/utils';
+
+function CollapsiblePanel({ label, title, children, className }: { label: string; title: string; children: React.ReactNode; className?: string }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Panel className={`dashboard-panel overflow-hidden ${className ?? ''}`}>
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="dashboard-panel-toggle flex w-full items-start justify-between gap-4 text-left">
+        <PanelHeader label={label} title={title} />
+        <ChevronDown className={`mt-4 mr-5 h-4 w-4 shrink-0 text-faint transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`dashboard-panel-content ${open ? 'is-open' : ''}`} aria-hidden={!open}>{children}</div>
+    </Panel>
+  );
+}
 
 /** One line, chosen from where the student actually is right now. */
 function greeting(progress: GamificationMe | null): string {
@@ -68,9 +82,9 @@ export default function StudentDashboard() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="student-dashboard mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 xl:px-12">
         <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
+          <div className="student-dashboard-heading min-w-0">
             <span className="instrument">Bench · {user?.username}</span>
             <h1 className="mt-2 text-[28px] leading-tight font-semibold tracking-[-0.03em] text-white">
               {user?.displayName.split(' ')[0]}
@@ -84,7 +98,7 @@ export default function StudentDashboard() {
           </Button>
         </header>
 
-        <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <section className="student-stat-grid mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {progress ? (
             <>
               <Stat
@@ -119,11 +133,7 @@ export default function StudentDashboard() {
         </section>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <Panel className="lg:col-span-2">
-            <PanelHeader
-              label="Activity"
-              title="Submissions over the last 13 weeks"
-            />
+          <CollapsiblePanel className="lg:col-span-2" label="Activity" title="Submissions over the last 13 weeks">
             <PanelBody className="pt-4">
               {submissions ? (
                 <ActivityHeatmap dates={submissions.map((row) => row.createdAt)} />
@@ -131,10 +141,9 @@ export default function StudentDashboard() {
                 <Skeleton className="h-28 w-full" />
               )}
             </PanelBody>
-          </Panel>
+          </CollapsiblePanel>
 
-          <Panel>
-            <PanelHeader label="Profile" title="Accuracy by category" />
+          <CollapsiblePanel label="Profile" title="Accuracy by category">
             <PanelBody className="pt-2">
               {submissions ? (
                 <SkillRadar data={toSkillData(submissions)} />
@@ -142,22 +151,11 @@ export default function StudentDashboard() {
                 <Skeleton className="mx-auto h-56 w-56 rounded-full" />
               )}
             </PanelBody>
-          </Panel>
+          </CollapsiblePanel>
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <Panel className="lg:col-span-2">
-            <PanelHeader
-              label="Recent"
-              title="Latest submissions"
-              action={
-                <Link href="/student/profile">
-                  <Button variant="ghost" size="sm">
-                    View all
-                  </Button>
-                </Link>
-              }
-            />
+          <CollapsiblePanel className="lg:col-span-2" label="Recent" title="Latest submissions">
             <PanelBody className="pt-3">
               {!submissions ? (
                 <div className="space-y-2">
@@ -207,10 +205,9 @@ export default function StudentDashboard() {
                 </ul>
               )}
             </PanelBody>
-          </Panel>
+          </CollapsiblePanel>
 
-          <Panel>
-            <PanelHeader label="Scheduled" title="Upcoming exams" />
+          <CollapsiblePanel label="Scheduled" title="Upcoming exams">
             <PanelBody className="pt-3">
               {!exams ? (
                 <Skeleton className="h-20 w-full" />
@@ -257,7 +254,7 @@ export default function StudentDashboard() {
                 </ul>
               )}
             </PanelBody>
-          </Panel>
+          </CollapsiblePanel>
         </div>
 
         <JoinClassDialog

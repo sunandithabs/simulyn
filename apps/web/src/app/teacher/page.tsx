@@ -4,6 +4,7 @@ import {
   Activity,
   BrainCircuit,
   CheckCircle2,
+  ChevronDown,
   Sparkles,
   Users,
   XCircle,
@@ -31,6 +32,19 @@ import type {
   SubmissionListRow,
 } from '@/lib/types';
 import { relativeTime } from '@/lib/utils';
+
+function TeacherPanel({ label, title, children }: { label: string; title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Panel className="teacher-collapsible-panel overflow-hidden">
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="teacher-panel-toggle flex w-full items-start justify-between gap-4 text-left">
+        <PanelHeader label={label} title={title} />
+        <ChevronDown className={`mt-4 mr-5 h-4 w-4 shrink-0 text-faint transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`teacher-panel-content ${open ? 'is-open' : ''}`}>{children}</div>
+    </Panel>
+  );
+}
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
@@ -116,7 +130,7 @@ export default function TeacherDashboard() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="teacher-dashboard mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 xl:px-12">
         <header>
           <span className="instrument">Teaching console</span>
           <h1 className="mt-2 text-[28px] leading-tight font-semibold tracking-[-0.03em] text-white">
@@ -230,8 +244,7 @@ export default function TeacherDashboard() {
         </section>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Panel>
-            <PanelHeader label="Recent" title="Latest student submissions" />
+          <TeacherPanel label="Recent" title="Latest student submissions">
             <PanelBody className="pt-3">
               {activity === null ? (
                 <div className="space-y-2">
@@ -268,26 +281,16 @@ export default function TeacherDashboard() {
                 </ul>
               )}
             </PanelBody>
-          </Panel>
+          </TeacherPanel>
 
-          <Panel>
-            <PanelHeader
-              label="Assistant"
-              title="Classroom insights"
-              action={
-                <Button
-                  variant="brass"
-                  size="sm"
-                  onClick={() => void loadInsights()}
-                  loading={insightsBusy}
-                  disabled={!classes || classes.length === 0}
-                >
+          <TeacherPanel label="Assistant" title="Classroom insights">
+            <PanelBody className="pt-3">
+              <div className="mb-4 flex justify-end">
+                <Button variant="primary" size="sm" onClick={() => void loadInsights()} loading={insightsBusy} disabled={!classes || classes.length === 0}>
                   <Sparkles className="h-3.5 w-3.5" />
                   {insights ? 'Refresh' : 'Generate'}
                 </Button>
-              }
-            />
-            <PanelBody className="pt-3">
+              </div>
               {insights?.insights ? (
                 <>
                   <div className="prose-lab text-[13.5px]">
@@ -309,7 +312,7 @@ export default function TeacherDashboard() {
                 </p>
               )}
             </PanelBody>
-          </Panel>
+          </TeacherPanel>
         </div>
       </div>
     </PageTransition>

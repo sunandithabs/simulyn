@@ -47,7 +47,7 @@ export default function LeaderboardPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <div className="student-leaderboard mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <header>
           <span className="instrument">Standings</span>
           <h1 className="mt-2 text-[26px] leading-tight font-semibold tracking-[-0.03em] text-white">
@@ -99,6 +99,7 @@ export default function LeaderboardPage() {
                     className={cn(
                       'grid grid-cols-[3rem_1fr_4.5rem_4rem_3.5rem] items-center gap-3 border-b border-line px-4 py-3 transition-colors last:border-b-0 sm:grid-cols-[3rem_1fr_5rem_5rem_4.5rem_4rem]',
                       row.isCurrentUser && 'bg-violet/[0.12]',
+                      row.rank <= 3 && 'leaderboard-podium-row',
                     )}
                   >
                     <span

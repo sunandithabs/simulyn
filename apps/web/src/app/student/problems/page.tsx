@@ -89,7 +89,7 @@ export default function ProblemsPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="student-problems mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="instrument">Problem bank</span>

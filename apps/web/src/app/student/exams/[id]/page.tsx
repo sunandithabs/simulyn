@@ -300,7 +300,7 @@ export default function StudentExamPage() {
       });
       patchAnswer(current.problem.id, { submitted: true, passed: result.passed });
 
-      if (result.passed) toast.success(`Answer accepted — ${result.score} points`);
+      if (result.passed) toast.success(`Accepted. We are so back. ${result.score} points`);
       else toast.error(`${result.passedCount} of ${result.totalCount} cases passed`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not submit this answer');

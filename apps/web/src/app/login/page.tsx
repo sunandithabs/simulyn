@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -58,15 +58,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center px-6 py-12">
-      <Link
-        href="/"
-        className="absolute top-6 left-6 flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-paper"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </Link>
-
+    <main className="simulyn-login relative flex min-h-dvh items-center justify-center px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -80,10 +72,16 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-ink-raised/80" />
           </div>
 
-          <div className="px-7 pt-6 pb-7">
+          <div className="relative px-7 pt-6 pb-7">
+            <Link
+              href="/"
+              aria-label="Close sign in"
+              className="absolute top-4 right-4 rounded-md p-2 text-muted transition-all hover:bg-violet/15 hover:text-paper hover:shadow-[0_0_0_1px_#a78bfa40]"
+            >
+              <X className="h-5 w-5" />
+            </Link>
             <span className="instrument">Workspace access</span>
             <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">Sign in</h1>
-
             <div
               className="mt-6 flex gap-1 rounded-lg border border-line bg-ink-sunken/60 p-1"
               role="tablist"

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import type { NextFunction, Request, Response } from 'express';
 
 import { AppModule } from './app.module';
 import { REFRESH_COOKIE } from './config/configuration';
@@ -13,7 +14,29 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.use(cookieParser());
+
+  app.enableShutdownHooks();
+  if (config.get<string>('nodeEnv') === 'production') {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (!req.secure) {
+        res.status(400).json({ statusCode: 400, message: 'HTTPS is required' });
+        return;
+      }
+      next();
+    });
+  }
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+    if (config.get<string>('nodeEnv') === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
 
   app.enableCors({
     origin: config.get<string[]>('corsOrigin') ?? ['http://localhost:3000'],
@@ -24,6 +47,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: false },
       validationError: { target: false, value: false },

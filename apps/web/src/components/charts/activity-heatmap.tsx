@@ -85,7 +85,7 @@ export function ActivityHeatmap({ dates }: { dates: string[] }) {
   const width = columns.length * (CELL + GAP);
 
   return (
-    <div className="relative">
+    <div className="activity-heatmap relative">
       <div className="flex gap-2 overflow-x-auto pb-1">
         <div
           className="flex shrink-0 flex-col justify-between pt-[14px] pb-0.5"

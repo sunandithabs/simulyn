@@ -163,7 +163,7 @@ export default function ProblemSolverPage() {
       });
 
       if (result.passed) {
-        toast.success(`Accepted — ${result.score} points`);
+        toast.success(`Accepted. We are so back. ${result.score} points`);
         if (result.reward?.xpAwarded) {
           toast.success(`+${result.reward.xpAwarded} XP`, {
             description: result.reward.leveledUp ? `Level ${result.reward.level} reached` : undefined,
@@ -214,13 +214,13 @@ export default function ProblemSolverPage() {
 
   return (
     <PageTransition>
-      <div className="flex h-[calc(100dvh-57px)] flex-col lg:flex-row">
+      <div className="coding-workspace flex h-[calc(100dvh-57px)] flex-col lg:flex-row">
         {/* Left: the statement */}
         <section
           className="min-h-0 shrink-0 overflow-y-auto border-b border-line lg:border-r lg:border-b-0"
           style={{ width: undefined, flexBasis: isElectronics ? '46%' : `${split}%` }}
         >
-          <div className="p-5 sm:p-6">
+          <div className="coding-brief p-5 sm:p-6">
             <Link
               href="/student/problems"
               className="mb-5 inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-paper"
@@ -247,7 +247,7 @@ export default function ProblemSolverPage() {
         ) : null}
 
         {/* Right: the bench */}
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <section className="coding-bench flex min-h-0 min-w-0 flex-1 flex-col">
           {isElectronics ? (
             <div className="overflow-y-auto p-5 sm:p-6">
               <ElectronicsPanel

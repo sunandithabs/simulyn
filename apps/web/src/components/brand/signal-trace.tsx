@@ -61,7 +61,7 @@ export function SignalTrace({ className }: { className?: string }) {
 
       // Graticule: the faint measurement grid behind the trace. Fixed division
       // counts, so the step can never be zero.
-      ctx.strokeStyle = '#ffffff0a';
+      ctx.strokeStyle = '#c7a34626';
       ctx.lineWidth = 1;
       for (let i = 0; i <= 12; i++) {
         const x = (w / 12) * i;

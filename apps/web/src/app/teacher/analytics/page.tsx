@@ -56,7 +56,7 @@ export default function TeacherAnalyticsPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="teacher-analytics teacher-dashboard mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 xl:px-12">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="instrument">Measurement</span>

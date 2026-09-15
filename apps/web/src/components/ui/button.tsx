@@ -14,10 +14,10 @@ const button = cva(
         primary:
           'bg-violet text-white shadow-[0_0_0_1px_#a78bfa33,0_8px_24px_-12px_#7352b8] hover:bg-violet-lit hover:text-ink',
         brass:
-          'bg-brass/15 text-brass-lit border border-brass/40 hover:bg-brass/25 hover:border-brass/70',
-        outline: 'border border-line-strong text-paper hover:bg-white/5 hover:border-violet-lit/50',
-        ghost: 'text-muted hover:text-paper hover:bg-white/5',
-        danger: 'bg-fault/15 text-fault border border-fault/40 hover:bg-fault/25',
+          'bg-violet/15 text-violet-lit border border-violet-lit/40 hover:bg-violet/25 hover:border-violet-lit/70',
+        outline: 'border border-violet-lit/40 text-violet-lit hover:bg-violet/15 hover:border-violet-lit/70',
+        ghost: 'text-violet-lit hover:text-white hover:bg-violet/15',
+        danger: 'bg-violet/15 text-violet-lit border border-violet-lit/40 hover:bg-violet/25 hover:border-violet-lit/70',
       },
       size: {
         sm: 'h-8 px-3 text-[13px]',

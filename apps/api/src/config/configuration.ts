@@ -37,8 +37,8 @@ export default (): AppConfig => ({
     .map((o) => o.trim())
     .filter(Boolean),
   jwt: {
-    secret: process.env.JWT_SECRET ?? 'change-me-in-production',
-    refreshSecret: process.env.JWT_REFRESH_SECRET ?? 'change-me-too',
+    secret: requiredSecret('JWT_SECRET'),
+    refreshSecret: requiredSecret('JWT_REFRESH_SECRET'),
     expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   },
@@ -54,3 +54,12 @@ export default (): AppConfig => ({
     cloudModel: process.env.CLOUD_LLM_MODEL ?? 'claude-sonnet-5',
   },
 });
+
+function requiredSecret(name: string): string {
+  const value = process.env[name]?.trim();
+  const production = (process.env.NODE_ENV ?? 'development') === 'production';
+  if (production && (!value || value.length < 32)) {
+    throw new Error(`${name} must be set to a random value of at least 32 characters in production`);
+  }
+  return value || `development-only-${name.toLowerCase()}-do-not-use-in-production`;
+}

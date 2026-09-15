@@ -13,7 +13,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { ThemeSwitcher } from '@/components/brand/theme-switcher';
 import { useLockdown } from '@/components/layout/lockdown';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -137,7 +136,7 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="simulyn-app-shell flex min-h-dvh">
       {/*
         Desktop rail. During a locked-down exam the chrome is hidden rather
         than unmounted: removing it would reshape the tree and remount the exam
@@ -242,7 +241,6 @@ export function AppShell({
             )}
 
             <div className="flex shrink-0 items-center gap-3">
-              <ThemeSwitcher />
               <div className="hidden text-right sm:block">
                 <div className="text-[13px] font-medium text-paper">{user?.displayName}</div>
                 <div className="font-mono text-[10px] text-faint">@{user?.username}</div>

@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiCookieAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@simulyn/shared';
 import type { Request, Response } from 'express';
 
@@ -32,6 +33,7 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Sign in with a username (or email) and password',
@@ -50,6 +52,7 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   @ApiCookieAuth(REFRESH_COOKIE)
   @Post('refresh')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Exchange the refresh cookie for a new access token (rotates the cookie)' })
   @ApiOkResponse({ type: AuthResponseDto })

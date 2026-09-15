@@ -54,7 +54,7 @@ export default function TeacherClassesPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="teacher-classes teacher-dashboard mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 xl:px-12">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="instrument">Roster</span>
