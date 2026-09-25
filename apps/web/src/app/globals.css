@@ -833,5 +833,8 @@ html { scroll-behavior: smooth; }
 
 
 /* Make the comparison question a readable part of the System narrative. */
-.simulyn-landing .why-simulyn span { color: #3a2750; font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: .08em; line-height: 1.2; }
-.simulyn-landing .why-simulyn strong { font-family: var(--font-display); font-size: clamp(1.35rem, 2.1vw, 2rem); line-height: 1.02; }
+.simulyn-landing .why-simulyn { display: grid; gap: 10px; max-width: 420px; margin-top: 40px; padding: 20px 22px; border: 1px solid #d7b76340; border-left: 3px solid var(--acid); background: #ffffff08; }
+.simulyn-landing .why-simulyn span { display: block; color: var(--acid); font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: .08em; line-height: 1.2; }
+.simulyn-landing .why-simulyn strong { display: block; color: var(--cream); font-family: var(--font-display); font-size: clamp(1.35rem, 2.1vw, 2rem); line-height: 1.02; }
+
+.simulyn-landing .why-simulyn small { display: block; color: var(--paper-dim); font-size: 13px; line-height: 1.6; }
