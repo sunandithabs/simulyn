@@ -148,6 +148,13 @@ export default function LoginPage() {
               </Button>
             </form>
 
+            <div className="mt-4 flex items-center justify-center gap-1.5 text-[13px] text-muted">
+              <span>New student?</span>
+              <Link href="/signup" className="font-medium text-violet-lit hover:underline">
+                Create an account
+              </Link>
+            </div>
+
             <div className="mt-6">
               <div className="flex items-center gap-3">
                 <span className="instrument">Demo accounts</span>

@@ -25,11 +25,30 @@ import { AuthService } from './auth.service';
 import { AuthResponseDto, AuthUserDto } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('register')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Self-service student sign-up',
+    description:
+      'Creates a STUDENT account regardless of any role sent by the client, then signs the new ' +
+      'account in exactly like POST /auth/login. Username and email must both be unused.',
+  })
+  @ApiOkResponse({ type: AuthResponseDto })
+  register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    return this.authService.register(dto, res);
+  }
 
   @Public()
   @Post('login')
