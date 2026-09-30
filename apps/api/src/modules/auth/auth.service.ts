@@ -17,8 +17,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { REFRESH_COOKIE } from '../../config/configuration';
 import { BCRYPT_ROUNDS } from '../../common/constants';
 import type { AuthenticatedUser, JwtPayload, RefreshPayload } from '../../common/types/authenticated-user';
+import { UsersService } from '../users/users.service';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RegisterDto } from './dto/register.dto';
+
+/** Minimal shape both the full Prisma `User` and the password-stripped `PublicUser` satisfy. */
+type SessionUser = Pick<
+  User,
+  'id' | 'username' | 'email' | 'displayName' | 'avatar' | 'role' | 'mustChangePassword'
+>;
 
 /** Converts "15m" / "7d" / "3600" into milliseconds. */
 export function durationToMs(value: string): number {
@@ -38,6 +46,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly usersService: UsersService,
   ) {}
 
   // ── helpers ────────────────────────────────────────────────────────
@@ -58,7 +67,7 @@ export class AuthService {
     };
   }
 
-  toAuthUser(user: User): AuthenticatedUser {
+  toAuthUser(user: SessionUser): AuthenticatedUser {
     return {
       id: user.id,
       username: user.username,
@@ -70,7 +79,9 @@ export class AuthService {
     };
   }
 
-  private async issueTokens(user: User): Promise<{ accessToken: string; refreshToken: string }> {
+  private async issueTokens(
+    user: Pick<User, 'id' | 'username' | 'role'>,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload: JwtPayload = { sub: user.id, username: user.username, role: user.role };
 
     // `expiresIn` is typed as the `ms` StringValue union; ours comes from the
@@ -122,6 +133,30 @@ export class AuthService {
   }
 
   // ── endpoints ──────────────────────────────────────────────────────
+
+  /**
+   * Public self-service registration. Always creates a STUDENT account —
+   * the role field on the DTO (if present) is ignored so a client can never
+   * mint itself a teacher/admin account. Delegates to UsersService.create()
+   * for hashing, uniqueness checks and the gamification row so this follows
+   * the exact same path an admin-created student account takes.
+   */
+  async register(dto: RegisterDto, res: Response): Promise<AuthResponseDto> {
+    const created = await this.usersService.create({
+      username: dto.username,
+      email: dto.email,
+      displayName: dto.displayName,
+      password: dto.password,
+      role: Role.STUDENT,
+      mustChangePassword: false,
+    });
+
+    const { accessToken, refreshToken } = await this.issueTokens(created);
+    res.cookie(REFRESH_COOKIE, refreshToken, this.cookieOptions());
+
+    this.logger.log(`${created.username} self-registered as a student`);
+    return { accessToken, user: this.toAuthUser(created) };
+  }
 
   async login(identifier: string, password: string, res: Response): Promise<AuthResponseDto> {
     const user = await this.validateCredentials(identifier, password);

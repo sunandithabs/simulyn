@@ -42,6 +42,41 @@ export const MAX_CODE_LENGTH = 100_000;
 const isWindows = process.platform === 'win32';
 
 /**
+ * Env vars a student's compiler/interpreter process may legitimately need to
+ * run. Everything else on the API's process.env (DATABASE_URL, JWT_SECRET,
+ * JWT_REFRESH_SECRET, CLOUD_LLM_API_KEY, etc.) is withheld — student code
+ * must never be able to read server secrets via env lookups.
+ */
+const CHILD_ENV_ALLOWLIST = [
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'TEMP',
+  'TMP',
+  'LANG',
+  'LC_ALL',
+  'PYTHONIOENCODING',
+  'PYTHONDONTWRITEBYTECODE',
+  'JAVA_HOME',
+  'JAVA_TOOL_OPTIONS',
+  'NODE_OPTIONS',
+  'SystemRoot',
+  'windir',
+  'ComSpec',
+  'PATHEXT',
+];
+
+/** Builds a minimal, explicit env for a student process (no secret inheritance). */
+function buildChildEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of CHILD_ENV_ALLOWLIST) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
+}
+
+/**
  * Runs untrusted student code as a child process.
  *
  * NOTE: there is no kernel-level sandbox here — isolation comes from running
@@ -132,6 +167,7 @@ export class Executor {
         cwd: options.cwd,
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: buildChildEnv(),
       });
 
       let stdout = '';
