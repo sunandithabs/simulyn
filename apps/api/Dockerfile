@@ -61,4 +61,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # dumb-init reaps the compiler and interpreter processes the executor spawns.
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "apps/api/dist/main.js"]
+# 1) Apply committed Prisma migrations (never db push). `&&` means a failed
+#    migration exits non-zero and the API never starts.
+# 2) Idempotent, non-destructive bootstrap (admin, teacher, class, problem bank).
+#    Never deletes; a failure is logged but does not block the API.
+CMD ["sh", "-c", "cd packages/shared && ./node_modules/.bin/prisma migrate deploy --schema prisma/postgres/schema.prisma && { ./node_modules/.bin/tsx prisma/bootstrap.ts || echo '[bootstrap] FAILED - continuing without it'; } && cd /app && exec node apps/api/dist/main.js"]

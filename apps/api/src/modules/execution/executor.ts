@@ -42,41 +42,6 @@ export const MAX_CODE_LENGTH = 100_000;
 const isWindows = process.platform === 'win32';
 
 /**
- * Env vars a student's compiler/interpreter process may legitimately need to
- * run. Everything else on the API's process.env (DATABASE_URL, JWT_SECRET,
- * JWT_REFRESH_SECRET, CLOUD_LLM_API_KEY, etc.) is withheld — student code
- * must never be able to read server secrets via env lookups.
- */
-const CHILD_ENV_ALLOWLIST = [
-  'PATH',
-  'HOME',
-  'TMPDIR',
-  'TEMP',
-  'TMP',
-  'LANG',
-  'LC_ALL',
-  'PYTHONIOENCODING',
-  'PYTHONDONTWRITEBYTECODE',
-  'JAVA_HOME',
-  'JAVA_TOOL_OPTIONS',
-  'NODE_OPTIONS',
-  'SystemRoot',
-  'windir',
-  'ComSpec',
-  'PATHEXT',
-];
-
-/** Builds a minimal, explicit env for a student process (no secret inheritance). */
-function buildChildEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
-  for (const key of CHILD_ENV_ALLOWLIST) {
-    const value = process.env[key];
-    if (value !== undefined) env[key] = value;
-  }
-  return env;
-}
-
-/**
  * Runs untrusted student code as a child process.
  *
  * NOTE: there is no kernel-level sandbox here — isolation comes from running
@@ -156,6 +121,42 @@ export class Executor {
 
   // ── process plumbing ───────────────────────────────────────────────
 
+  /** Allowlisted env for untrusted code: no server secrets are inherited. */
+  private sandboxEnv(cwd: string): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+      HOME: cwd,
+      TMPDIR: cwd,
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8',
+    };
+    // Windows needs these to locate system DLLs / temp dirs.
+    for (const key of ['SystemRoot', 'SYSTEMROOT', 'PATHEXT', 'COMSPEC']) {
+      if (process.env[key]) env[key] = process.env[key];
+    }
+    if (process.platform === 'win32') {
+      env.TEMP = cwd;
+      env.TMP = cwd;
+    }
+    return env;
+  }
+
+  private killTree(child: ReturnType<typeof spawn>): void {
+    try {
+      if (process.platform !== 'win32' && child.pid) {
+        process.kill(-child.pid, 'SIGKILL'); // whole process group
+        return;
+      }
+    } catch {
+      /* group already gone — fall through */
+    }
+    try {
+      child.kill('SIGKILL');
+    } catch {
+      /* already exited */
+    }
+  }
+
   private spawnOnce(
     command: string,
     args: string[],
@@ -165,9 +166,10 @@ export class Executor {
       const startedAt = Date.now();
       const child = spawn(command, args, {
         cwd: options.cwd,
+        env: this.sandboxEnv(options.cwd),
+        detached: process.platform !== 'win32', // own process group so timeouts can kill children
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: buildChildEnv(),
       });
 
       let stdout = '';
@@ -179,7 +181,7 @@ export class Executor {
 
       const timer = setTimeout(() => {
         timedOut = true;
-        child.kill('SIGKILL');
+        this.killTree(child);
       }, options.timeoutMs);
 
       child.stdout.on('data', (chunk: Buffer) => {

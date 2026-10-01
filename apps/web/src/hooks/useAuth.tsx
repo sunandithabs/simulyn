@@ -15,13 +15,6 @@ import {
 import { api, onUnauthorized, setAccessToken } from '@/lib/api';
 import type { AuthResponse, AuthUser, Role } from '@/lib/types';
 
-export interface RegisterInput {
-  username: string;
-  email: string;
-  displayName: string;
-  password: string;
-}
-
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
@@ -30,6 +23,13 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   refresh: () => Promise<AuthUser | null>;
   setUser: (user: AuthUser | null) => void;
+}
+
+export interface RegisterInput {
+  username: string;
+  email: string;
+  displayName: string;
+  password: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -84,8 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user;
   }, []);
 
-  // Self-service student sign-up. The API always creates a STUDENT account
-  // regardless of any role field, so there is nothing role-related to pass.
   const register = useCallback(async (input: RegisterInput): Promise<AuthUser> => {
     const result = await api.post<AuthResponse>('/auth/register', input);
     setAccessToken(result.accessToken);

@@ -15,39 +15,35 @@ export default function SignupPage() {
   const { register, user, loading } = useAuth();
   const router = useRouter();
 
+  const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Already signed in — skip the form.
   useEffect(() => {
-    if (!loading && user) {
-      router.replace(user.mustChangePassword ? '/change-password' : HOME_ROUTE[user.role]);
-    }
+    if (!loading && user) router.replace(HOME_ROUTE[user.role]);
   }, [user, loading, router]);
 
-  async function signUp() {
-    setError(null);
-
-    if (password !== confirmPassword) {
+  async function submit() {
+    if (password !== confirm) {
       setError('Passwords do not match');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
     setBusy(true);
+    setError(null);
     try {
-      const account = await register({ username, email, displayName, password });
+      const account = await register({
+        displayName: displayName.trim(),
+        username: username.trim(),
+        email: email.trim(),
+        password,
+      });
       router.push(HOME_ROUTE[account.role]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create your account');
+      setError(err instanceof Error ? err.message : 'Could not create account');
       setBusy(false);
     }
   }
@@ -68,80 +64,72 @@ export default function SignupPage() {
 
           <div className="relative px-7 pt-6 pb-7">
             <Link
-              href="/"
-              aria-label="Close sign up"
+              href="/login"
+              aria-label="Back to sign in"
               className="absolute top-4 right-4 rounded-md p-2 text-muted transition-all hover:bg-violet/15 hover:text-paper hover:shadow-[0_0_0_1px_#a78bfa40]"
             >
               <X className="h-5 w-5" />
             </Link>
-            <span className="instrument">Student sign-up</span>
+            <span className="instrument">Student registration</span>
             <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">
-              Create your account
+              Create account
             </h1>
 
             <form
               className="mt-5 space-y-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                void signUp();
+                void submit();
               }}
             >
               <Field label="Full name">
                 <Input
                   value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  placeholder="Jane Student"
+                  onChange={(e) => setDisplayName(e.target.value)}
                   autoComplete="name"
+                  maxLength={120}
                   autoFocus
                   required
                 />
               </Field>
-
               <Field label="Username">
                 <Input
                   value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  placeholder="jane.student"
+                  onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
                   minLength={3}
                   maxLength={40}
-                  pattern="[a-zA-Z0-9._-]+"
-                  title="Letters, digits, dots, underscores and hyphens only"
+                  pattern="[a-zA-Z0-9._\-]+"
+                  title="Letters, digits, dots, underscores and hyphens"
                   required
                 />
               </Field>
-
               <Field label="Email">
                 <Input
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="jane.student@simulyn.edu"
+                  onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   required
                 />
               </Field>
-
-              <Field label="Password" hint="At least 6 characters">
+              <Field label="Password">
                 <Input
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
-                  minLength={6}
+                  minLength={8}
                   required
                 />
               </Field>
-
               <Field label="Confirm password">
                 <Input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="••••••••"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
                   autoComplete="new-password"
-                  minLength={6}
+                  minLength={8}
                   required
                 />
               </Field>
@@ -161,12 +149,12 @@ export default function SignupPage() {
               </Button>
             </form>
 
-            <div className="mt-6 flex items-center justify-center gap-1.5 text-[13px] text-muted">
-              <span>Already have an account?</span>
-              <Link href="/login" className="font-medium text-violet-lit hover:underline">
+            <p className="mt-5 text-center text-[13px] text-muted">
+              Already registered?{' '}
+              <Link href="/login" className="text-violet-lit hover:text-paper">
                 Sign in
               </Link>
-            </div>
+            </p>
           </div>
         </div>
       </motion.div>

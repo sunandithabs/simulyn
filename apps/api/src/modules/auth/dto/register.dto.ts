@@ -1,10 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from '@simulyn/shared';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
-  IsEnum,
   IsNotEmpty,
-  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -12,8 +9,9 @@ import {
 } from 'class-validator';
 
 /**
- * Self-service registration payload. Account creation is normally done by an
- * admin (POST /users) — this DTO backs the same validation rules.
+ * Public self-registration payload. Deliberately has no `role`: public
+ * sign-ups are always STUDENT, and the global ValidationPipe
+ * (forbidNonWhitelisted) rejects any extra field such as `role`.
  */
 export class RegisterDto {
   @ApiProperty({ example: 'new.student' })
@@ -37,14 +35,9 @@ export class RegisterDto {
   @MaxLength(120)
   displayName!: string;
 
-  @ApiProperty({ example: 'temporary-password', minLength: 6 })
+  @ApiProperty({ example: 'choose-a-password', minLength: 8 })
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   @MaxLength(200)
   password!: string;
-
-  @ApiPropertyOptional({ enum: Role, default: Role.STUDENT })
-  @IsEnum(Role)
-  @IsOptional()
-  role?: Role;
 }
