@@ -33,24 +33,6 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Post('register')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Self-service student sign-up',
-    description:
-      'Creates a STUDENT account regardless of any role sent by the client, then signs the new ' +
-      'account in exactly like POST /auth/login. Username and email must both be unused.',
-  })
-  @ApiOkResponse({ type: AuthResponseDto })
-  register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponseDto> {
-    return this.authService.register(dto, res);
-  }
-
-  @Public()
   @Post('login')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
@@ -65,6 +47,21 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     return this.authService.login(dto.username, dto.password, res);
+  }
+
+  @Public()
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a STUDENT account and sign in',
+    description: 'Public self-registration. Always creates a STUDENT; any role field is rejected.',
+  })
+  @ApiOkResponse({ type: AuthResponseDto })
+  register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    return this.authService.register(dto, res);
   }
 
   @Public()
