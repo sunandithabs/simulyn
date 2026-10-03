@@ -78,6 +78,8 @@ export interface RunResult {
   exitCode: number | null;
   timedOut: boolean;
   compileError: string | null;
+  /** Line in the student's code behind the compile error or crash, when known. */
+  errorLine?: number | null;
   executionMs: number;
 }
 
@@ -90,6 +92,7 @@ export interface TestOutcome {
   /** What the student's own print/console calls produced, if anything. */
   stdout?: string | null;
   passed: boolean;
+  verdict?: 'AC' | 'WA' | 'RE' | 'TLE' | 'NO_OUTPUT';
   stderr: string | null;
   exitCode: number | null;
   timedOut: boolean;
@@ -100,6 +103,8 @@ export interface EvaluationResult {
   ok: boolean;
   allPassed: boolean;
   compileError: string | null;
+  /** Line in the student's code behind a compile error or a crash on a sample case. */
+  errorLine?: number | null;
   results: TestOutcome[];
   passedCount: number;
   totalCount: number;

@@ -422,10 +422,16 @@ export function detectJavaMainClass(source: string): string | null {
  * sit at the top of the file. Both are relaxed here so student code compiles
  * inside our generated Main.java.
  */
-export function normaliseJavaSource(source: string): { imports: string[]; body: string } {
+export function normaliseJavaSource(
+  source: string,
+  keepLines = false,
+): { imports: string[]; body: string } {
   const imports: string[] = [];
+  // keepLines blanks an import without eating its newlines, so a line number in
+  // the result is still the line the student wrote — traces depend on that.
+  const importLine = keepLines ? /^[ \t]*import\s+[^;\n]+;[ \t]*$/gm : /^\s*import\s+[^;]+;\s*$/gm;
   const body = source
-    .replace(/^\s*import\s+[^;]+;\s*$/gm, (line) => {
+    .replace(importLine, (line) => {
       imports.push(line.trim());
       return '';
     })

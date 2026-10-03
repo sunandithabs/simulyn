@@ -28,7 +28,9 @@ export class ExecutionController {
     description: 'Rate limited to 30 requests per minute per user.',
   })
   async run(@Body() dto: RunCodeDto) {
-    const result = await this.execution.run(dto.lang, dto.code, dto.stdin ?? '');
+    const result = dto.problemId
+      ? await this.execution.runForProblem(dto.problemId, dto.code, dto.lang, dto.stdin)
+      : { ...(await this.execution.run(dto.lang, dto.code, dto.stdin ?? '')), errorLine: null };
     return {
       ok: result.compileError === null && !result.timedOut && result.exitCode === 0,
       stdout: result.stdout,
@@ -36,6 +38,7 @@ export class ExecutionController {
       exitCode: result.exitCode,
       timedOut: result.timedOut,
       compileError: result.compileError,
+      errorLine: result.errorLine,
       executionMs: result.executionMs,
     };
   }
@@ -48,7 +51,9 @@ export class ExecutionController {
     description: 'Students receive hidden cases as pass/fail only — never their input or expected output.',
   })
   async submit(@Body() dto: SubmitCodeDto, @CurrentUser() user: AuthenticatedUser) {
-    const result = await this.execution.evaluateProblem(dto.problemId, dto.code, dto.lang);
+    const result = await this.execution.evaluateProblem(dto.problemId, dto.code, dto.lang, {
+      visibleOnly: dto.visibleOnly,
+    });
     return user.role === Role.STUDENT ? this.execution.maskHidden(result) : result;
   }
 
@@ -61,7 +66,13 @@ export class ExecutionController {
       'Returns the trace the visualiser replays. Python is traced line by line; JavaScript reports array reads and writes; C++ and Java report only what the solution emits itself.',
   })
   trace(@Body() dto: TraceCodeDto) {
-    return this.execution.runWithTrace(dto.problemId, dto.code, dto.lang, dto.testCaseIndex ?? 0);
+    return this.execution.runWithTrace(
+      dto.problemId,
+      dto.code,
+      dto.lang,
+      dto.testCaseIndex ?? 0,
+      dto.offset ?? 0,
+    );
   }
 
   @Get('health')

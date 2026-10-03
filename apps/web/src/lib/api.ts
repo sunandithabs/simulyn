@@ -13,6 +13,7 @@ let onSessionLost: (() => void) | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+  cache.clear();
 }
 
 export function getAccessToken(): string | null {
@@ -74,6 +75,19 @@ interface RequestOptions {
   /** Set to false to skip the automatic refresh-and-retry on a 401. */
   retryOnUnauthorized?: boolean;
   signal?: AbortSignal;
+  /** GET only: skip the short-lived cache and refetch. */
+  fresh?: boolean;
+}
+
+// Short-lived GET cache + in-flight dedupe. Any write clears it, so a user's
+// own changes are never hidden; other users' changes show within the TTL.
+const CACHE_TTL_MS = 20_000;
+const NEVER_CACHE = /^\/(auth|exams|proctoring|execute|submissions)/;
+const cache = new Map<string, { at: number; data: unknown }>();
+const inflight = new Map<string, Promise<unknown>>();
+
+export function clearApiCache(): void {
+  cache.clear();
 }
 
 async function request<T>(
@@ -132,13 +146,40 @@ async function request<T>(
   return parsed as T;
 }
 
+function cachedGet<T>(path: string, options?: RequestOptions): Promise<T> {
+  if (options?.signal || options?.fresh || NEVER_CACHE.test(path)) {
+    return request<T>('GET', path, options);
+  }
+  const hit = cache.get(path);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return Promise.resolve(hit.data as T);
+  const pending = inflight.get(path);
+  if (pending) return pending as Promise<T>;
+
+  const promise = request<T>('GET', path, options)
+    .then((data) => {
+      cache.set(path, { at: Date.now(), data });
+      return data;
+    })
+    .finally(() => inflight.delete(path));
+  inflight.set(path, promise);
+  return promise;
+}
+
+async function write<T>(method: string, path: string, body?: unknown, options?: RequestOptions) {
+  try {
+    return await request<T>(method, path, { ...options, body });
+  } finally {
+    cache.clear();
+  }
+}
+
 export const api = {
-  get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options),
+  get: cachedGet,
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('POST', path, { ...options, body }),
+    write<T>('POST', path, body, options),
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('PATCH', path, { ...options, body }),
-  delete: <T>(path: string, options?: RequestOptions) => request<T>('DELETE', path, options),
+    write<T>('PATCH', path, body, options),
+  delete: <T>(path: string, options?: RequestOptions) => write<T>('DELETE', path, undefined, options),
 };
 
 /** Builds a query string, dropping empty values. */

@@ -4,10 +4,18 @@ import { AlertTriangle, CheckCircle2, Clock, Terminal, XCircle } from 'lucide-re
 
 import { Badge } from '@/components/ui/badge';
 import { Empty } from '@/components/ui/empty';
-import type { EvaluationResult, LangKey, RunResult, TestOutcome } from '@/lib/types';
+import type { EvaluationResult, LangKey, RunResult, TestCaseView, TestOutcome } from '@/lib/types';
 import { cn, formatDuration } from '@/lib/utils';
 
 /** Shown when a run produces no output, so the fix is one copy-paste away. */
+const VERDICT: Record<string, string> = {
+  AC: 'Accepted',
+  WA: 'Wrong answer',
+  RE: 'Runtime error',
+  TLE: 'Time limit',
+  NO_OUTPUT: 'No return value',
+};
+
 const PRINT_EXAMPLE: Record<LangKey, string> = {
   python: 'print(twoSum([2, 7, 11, 15], 9))',
   javascript: 'console.log(twoSum([2, 7, 11, 15], 9));',
@@ -51,6 +59,9 @@ function TestCase({ outcome, index }: { outcome: TestOutcome; index: number }) {
         <span className="text-[13px] text-paper">Case {index + 1}</span>
         {outcome.isHidden ? <Badge>hidden</Badge> : null}
         {outcome.timedOut ? <Badge tone="warn">timed out</Badge> : null}
+        {!outcome.passed && outcome.verdict ? (
+          <span className="text-[11px] text-fault">{VERDICT[outcome.verdict]}</span>
+        ) : null}
         <span className="ml-auto font-mono text-[10px] text-faint tabular">
           {formatDuration(outcome.executionMs)}
         </span>
@@ -82,15 +93,35 @@ function TestCase({ outcome, index }: { outcome: TestOutcome; index: number }) {
 export function TestResults({
   evaluation,
   running,
+  cases,
 }: {
   evaluation: EvaluationResult | null;
   running: boolean;
+  /** Visible cases, listed before anything has been run. */
+  cases?: TestCaseView[];
 }) {
   if (running) {
     return (
       <div className="flex items-center gap-2.5 px-4 py-8 text-sm text-muted">
         <span className="h-2 w-2 animate-pulse rounded-full bg-violet-lit" />
         Running your code against the test cases…
+      </div>
+    );
+  }
+
+  if (!evaluation && cases && cases.length > 0) {
+    return (
+      <div className="space-y-1.5 p-3">
+        <p className="px-1 pb-1 text-[12px] text-muted">
+          Sample cases. Run checks these; Submit also checks hidden cases.
+        </p>
+        {cases.map((testCase, index) => (
+          <div key={testCase.id} className="rounded-lg border border-line px-3 py-2">
+            <span className="text-[13px] text-paper">Case {index + 1}</span>
+            <Row label="Input" value={testCase.input} />
+            <Row label="Expected" value={testCase.expected} tone="pass" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -136,6 +167,12 @@ export function TestResults({
             style={{ width: `${(evaluation.passedCount / evaluation.totalCount) * 100}%` }}
           />
         </div>
+        {evaluation.results.some((r) => r.isHidden) ? (
+          <span className="font-mono text-[10px] text-faint">
+            hidden {evaluation.results.filter((r) => r.isHidden && r.passed).length}/
+            {evaluation.results.filter((r) => r.isHidden).length}
+          </span>
+        ) : null}
         <span className="flex items-center gap-1 font-mono text-[10px] text-faint">
           <Clock className="h-3 w-3" />
           {formatDuration(evaluation.totalMs)}

@@ -2,6 +2,7 @@
 
 import { emptyState, label, MONO, MONO_SMALL, OP_COLOUR, PALETTE, short } from '../draw';
 import { useCanvas } from '../use-canvas';
+import { followTree } from '../stack';
 import type { RendererProps } from '../types';
 
 interface Node {
@@ -65,10 +66,38 @@ function layout(root: Node): { nodes: Node[]; columns: number; depth: number } {
   return { nodes, columns: column, depth: deepest };
 }
 
-export function TreeView({ event, plan, previous }: RendererProps) {
+/** Names a recursive helper commonly gives the node it was handed. */
+const NODE_NAMES = ['root', 'node', 'tree', 'curr', 'cur', 'current', 'n', 'head'];
+
+/** The level-order array a call was handed; an empty array for a None child. */
+function treeOf(vars: Record<string, unknown>, first: string[]): unknown[] | null {
+  for (const key of [...first, ...NODE_NAMES]) {
+    const value = vars[key];
+    if (Array.isArray(value)) return value;
+    if (value === null && key in vars) return [];
+  }
+  return null;
+}
+
+export function TreeView({ event, plan, previous, frames = [] }: RendererProps) {
   const canvasRef = useCanvas(
     (ctx, width, height) => {
-      const vars = event?.vars ?? {};
+      let vars = event?.vars ?? {};
+
+      // In a recursion the innermost call only holds its own subtree. Draw the
+      // whole tree from the outermost call instead, and light the node the
+      // calls are standing on — provided the calls can actually be followed.
+      let trail: ReturnType<typeof followTree> = null;
+      if (frames.length > 1) {
+        const outer = treeOf(frames[0].vars, plan.paramNames);
+        trail = outer
+          ? followTree(
+              outer,
+              frames.map((frame) => treeOf(frame.vars, plan.paramNames)),
+            )
+          : null;
+        if (trail && outer) vars = { ...vars, [plan.paramNames[0] ?? 'root']: outer };
+      }
 
       // A serialised tree is an array that contains nulls, or the named param.
       const candidates = [...plan.paramNames, 'root', 'node', 'tree'];
@@ -119,6 +148,8 @@ export function TreeView({ event, plan, previous }: RendererProps) {
         : undefined;
       const opColour = OP_COLOUR[event?.op ?? 'visit'] ?? PALETTE.violetLit;
       const highlights = new Set(event?.highlights ?? []);
+      const onPath = new Set(trail?.path ?? []);
+      const here = trail ? trail.path[trail.path.length - 1] : -1;
 
       label(ctx, name, 16, 16, { colour: PALETTE.muted, font: MONO, align: 'left' });
 
@@ -140,7 +171,9 @@ export function TreeView({ event, plan, previous }: RendererProps) {
 
       for (const node of nodes) {
         const { x, y } = place(node);
-        const isHighlighted = highlights.has(node.index) || highlights.has(Number(node.value));
+        const isHere = node.index === here;
+        const isHighlighted =
+          isHere || (!trail && (highlights.has(node.index) || highlights.has(Number(node.value))));
         const changed =
           before !== undefined && JSON.stringify(before[node.index]) !== JSON.stringify(node.value);
 
@@ -148,6 +181,17 @@ export function TreeView({ event, plan, previous }: RendererProps) {
         const tint = [PALETTE.violetLit, PALETTE.brassLit, PALETTE.trace, PALETTE.muted][
           node.depth % 4
         ];
+
+        if (onPath.has(node.index) && !isHere) {
+          // Calls still waiting on the current one.
+          ctx.beginPath();
+          ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = `${PALETTE.violetLit}66`;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
 
         ctx.save();
         if (isHighlighted || changed) {
@@ -172,12 +216,19 @@ export function TreeView({ event, plan, previous }: RendererProps) {
         });
       }
 
-      label(ctx, `${nodes.length} nodes · depth ${depth + 1}`, width / 2, height - 12, {
-        colour: PALETTE.faint,
-        font: MONO_SMALL,
-      });
+      label(
+        ctx,
+        trail
+          ? trail.atEmptyChild
+            ? 'current call: an empty child'
+            : 'current call: highlighted node'
+          : `${nodes.length} nodes · depth ${depth + 1}`,
+        width / 2,
+        height - 12,
+        { colour: PALETTE.faint, font: MONO_SMALL },
+      );
     },
-    [event, previous, plan.paramNames.join(',')],
+    [event, previous, frames, plan.paramNames.join(',')],
   );
 
   return <canvas ref={canvasRef} className="block h-full w-full" />;
