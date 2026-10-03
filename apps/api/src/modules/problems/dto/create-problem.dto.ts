@@ -25,6 +25,7 @@ export class TestCaseDto {
 
   @ApiProperty({ description: 'A single JSON literal matching the harness return type' })
   @IsString()
+  @IsNotEmpty()
   expected!: string;
 
   @ApiPropertyOptional({ default: false, description: 'Hidden cases are never shown to students' })

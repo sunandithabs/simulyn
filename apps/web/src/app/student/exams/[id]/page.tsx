@@ -265,10 +265,15 @@ export default function StudentExamPage() {
   async function run() {
     if (!current || !answer) return;
     setRunning(true);
-    setBottom('console');
+    setBottom('tests');
     try {
-      setRunResult(
-        await api.post<RunResult>('/execute/run', { code: answer.code, lang: answer.language }),
+      setEvaluation(
+        await api.post<EvaluationResult>('/execute/submit', {
+          problemId: current.problem.id,
+          code: answer.code,
+          lang: answer.language,
+          visibleOnly: true,
+        }),
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not run your code');
@@ -686,7 +691,11 @@ export default function StudentExamPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {bottom === 'tests' ? (
-                <TestResults evaluation={evaluation} running={submittingAnswer} />
+                <TestResults
+                  evaluation={evaluation}
+                  running={submittingAnswer || running}
+                  cases={current?.problem.testCases?.filter((c) => !c.isHidden)}
+                />
               ) : (
                 <ConsoleOutput
                   result={runResult}

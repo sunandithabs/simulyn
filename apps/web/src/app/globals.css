@@ -324,6 +324,29 @@
   cursor: not-allowed;
 }
 
+/*
+  The visualiser docks beside the editor from lg up, so the workspace gives up
+  the drawer's width (set by the page as --viz-pad, in vw) instead of hiding
+  under it. Below lg the drawer covers the screen and no room is made.
+*/
+@media (min-width: 1024px) {
+  .viz-dock {
+    padding-right: calc(var(--viz-pad, 0) * 1vw);
+    transition: padding-right 320ms var(--ease-instrument);
+  }
+}
+
+/* The source line the visualiser is on. */
+.viz-exec-line {
+  background: #a78bfa24;
+  box-shadow: inset 3px 0 0 #a78bfa;
+}
+.viz-exec-glyph {
+  margin-left: 4px;
+  width: 8px !important;
+  background: radial-gradient(circle at center, #e8cc80 0 3px, transparent 3.5px) no-repeat center;
+}
+
 /* Markdown rendered inside problem statements. */
 .prose-lab {
   color: var(--color-paper);

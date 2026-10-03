@@ -4,11 +4,13 @@ import { parseJsonOrNull, type ElectronicsQuestion } from '@simulyn/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { outputsMatch } from './compare';
+import { codeOffset, locateErrorLine } from './error-line';
 import { Executor, normaliseJavaSource, type LangKey, type RunOutcome } from './executor';
 import {
   assertValidHarness,
   buildProgram,
   generateTracedDriver,
+  instrumentedDriver,
   HarnessError,
   RESULT_MARKER,
   traceFidelity,
@@ -16,6 +18,7 @@ import {
 } from './harness';
 import {
   MAX_TRACE_EVENTS,
+  MAX_TRACE_OFFSET,
   TRACE_MARKER,
   type TraceEvent,
   type TraceResult,
@@ -30,6 +33,8 @@ export interface TestOutcome {
   /** Anything the student printed themselves — never part of the comparison. */
   stdout: string | null;
   passed: boolean;
+  /** AC accepted · WA wrong answer · RE runtime error · TLE timed out · NO_OUTPUT driver never returned. */
+  verdict: 'AC' | 'WA' | 'RE' | 'TLE' | 'NO_OUTPUT';
   stderr: string | null;
   exitCode: number | null;
   timedOut: boolean;
@@ -56,6 +61,7 @@ export function maskHiddenOutcome(outcome: TestOutcome): TestOutcome {
     expected: 'hidden',
     actual: outcome.actual === null ? null : 'hidden',
     stdout: null,
+    verdict: outcome.passed ? 'AC' : outcome.timedOut ? 'TLE' : 'WA',
     stderr: outcome.stderr ? HIDDEN_ERROR_NOTICE : null,
     exitCode: null,
   };
@@ -97,26 +103,33 @@ export function extractTraceEvents(raw: string): {
 
     try {
       const event = JSON.parse(line.slice(at + TRACE_MARKER.length)) as TraceEvent;
-      if (events.length < MAX_TRACE_EVENTS) events.push(event);
+      // One past the page: the driver emits a spare step so "more" is certain.
+      if (events.length <= MAX_TRACE_EVENTS) events.push(event);
     } catch {
       // A partially flushed line is not worth failing the whole run over.
     }
   }
 
-  return {
-    events,
-    truncated: events.length >= MAX_TRACE_EVENTS,
-    remainder: kept.join('\n'),
-  };
+  const truncated = events.length > MAX_TRACE_EVENTS;
+  if (truncated) events.length = MAX_TRACE_EVENTS;
+
+  return { events, truncated, remainder: kept.join('\n') };
 }
 
-export function splitDriverOutput(raw: string): { actual: string; studentOutput: string } {
+export function splitDriverOutput(raw: string): {
+  actual: string;
+  studentOutput: string;
+  found: boolean;
+} {
   // lastIndexOf: the driver writes its marker last, so a student echoing the
   // same string earlier cannot hijack the parse.
   const at = raw.lastIndexOf(RESULT_MARKER);
-  if (at === -1) return { actual: raw.trim(), studentOutput: '' };
+  // No marker means the driver never reached its own return line (early exit,
+  // stray print) — never treat raw stdout as the answer.
+  if (at === -1) return { actual: '', studentOutput: raw.trim(), found: false };
 
   return {
+    found: true,
     actual: raw.slice(at + RESULT_MARKER.length).trim(),
     studentOutput: raw.slice(0, at).trim(),
   };
@@ -126,6 +139,8 @@ export interface EvaluationResult {
   ok: boolean;
   allPassed: boolean;
   compileError: string | null;
+  /** Line in the student's code behind a compile error or a visible-case crash. */
+  errorLine: number | null;
   results: TestOutcome[];
   passedCount: number;
   totalCount: number;
@@ -205,12 +220,64 @@ export class ExecutionService implements OnModuleInit {
     return this.executor.execute(lang, source, stdin, { timeoutMs: this.timeoutMs });
   }
 
-  // ── evaluation against a problem's test cases ──────────────────────
-
-  async evaluateProblem(problemId: string, code: string, lang: LangKey): Promise<EvaluationResult> {
+  /**
+   * Run button: executes the student's function through the problem's harness
+   * (which supplies main) against a visible case, or custom stdin if given.
+   */
+  async runForProblem(
+    problemId: string,
+    code: string,
+    lang: LangKey,
+    stdin?: string,
+  ): Promise<RunOutcome & { errorLine: number | null }> {
     const problem = await this.prisma.problem.findUnique({
       where: { id: problemId },
-      include: { testCases: { orderBy: { order: 'asc' } } },
+      include: { testCases: { where: { isHidden: false }, orderBy: { order: 'asc' }, take: 1 } },
+    });
+    if (!problem) throw new NotFoundException(`Problem ${problemId} not found`);
+    if (problem.type !== 'PROGRAMMING') return { ...(await this.run(lang, code, stdin ?? '')), errorLine: null };
+
+    let spec: HarnessSpec;
+    try {
+      const parsed = parseJsonOrNull<HarnessSpec>(problem.harness);
+      assertValidHarness(parsed);
+      spec = parsed;
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof HarnessError ? error.message : 'This problem has an invalid harness definition',
+      );
+    }
+
+    const input = stdin?.trim() ? stdin : (problem.testCases[0]?.input ?? '');
+    const program = buildProgram(lang, code, spec, input);
+    const out = await this.executor.execute(lang, program, '', { timeoutMs: this.timeoutMs });
+    const { actual, studentOutput, found } = splitDriverOutput(out.stdout);
+    const stdout = [studentOutput, found ? `=> ${actual}` : ''].filter(Boolean).join('\n');
+    const errorLine = locateErrorLine(
+      lang,
+      out.compileError ?? out.stderr,
+      codeOffset(lang, program, code),
+      code,
+    );
+    return { ...out, stdout, errorLine };
+  }
+
+  // ── evaluation against a problem's test cases ──────────────────────
+
+  async evaluateProblem(
+    problemId: string,
+    code: string,
+    lang: LangKey,
+    options: { visibleOnly?: boolean } = {},
+  ): Promise<EvaluationResult> {
+    const problem = await this.prisma.problem.findUnique({
+      where: { id: problemId },
+      include: {
+        testCases: {
+          where: options.visibleOnly ? { isHidden: false } : undefined,
+          orderBy: { order: 'asc' },
+        },
+      },
     });
     if (!problem) throw new NotFoundException(`Problem ${problemId} not found`);
     if (problem.type !== 'PROGRAMMING') {
@@ -232,6 +299,7 @@ export class ExecutionService implements OnModuleInit {
     }
 
     const program = buildProgram(lang, code, spec);
+    const offset = codeOffset(lang, program, code);
     const prepared = await this.executor.prepare(lang, program, { timeoutMs: this.timeoutMs });
     const startedAt = Date.now();
 
@@ -241,6 +309,7 @@ export class ExecutionService implements OnModuleInit {
           ok: false,
           allPassed: false,
           compileError: prepared.compileError,
+          errorLine: locateErrorLine(lang, prepared.compileError, offset, code),
           results: [],
           passedCount: 0,
           totalCount: problem.testCases.length,
@@ -251,8 +320,9 @@ export class ExecutionService implements OnModuleInit {
       const results: TestOutcome[] = [];
       for (const [index, testCase] of problem.testCases.entries()) {
         const run = await prepared.run(testCase.input, { timeoutMs: this.timeoutMs });
-        const { actual, studentOutput } = splitDriverOutput(run.stdout);
+        const { actual, studentOutput, found } = splitDriverOutput(run.stdout);
         const passed =
+          found &&
           !run.timedOut &&
           run.exitCode === 0 &&
           outputsMatch(actual, testCase.expected, spec.normalize);
@@ -265,6 +335,15 @@ export class ExecutionService implements OnModuleInit {
           actual: actual || null,
           stdout: studentOutput || null,
           passed,
+          verdict: passed
+            ? 'AC'
+            : run.timedOut
+              ? 'TLE'
+              : run.exitCode !== 0
+                ? 'RE'
+                : !found
+                  ? 'NO_OUTPUT'
+                  : 'WA',
           stderr: run.stderr.trim() || null,
           exitCode: run.exitCode,
           timedOut: run.timedOut,
@@ -273,10 +352,13 @@ export class ExecutionService implements OnModuleInit {
       }
 
       const passedCount = results.filter((r) => r.passed).length;
+      // Hidden cases never contribute: even a line number says something about them.
+      const crashed = results.find((r) => !r.isHidden && r.exitCode !== 0 && r.stderr);
       return {
         ok: true,
         allPassed: passedCount === results.length,
         compileError: null,
+        errorLine: crashed ? locateErrorLine(lang, crashed.stderr, offset, code) : null,
         results,
         passedCount,
         totalCount: results.length,
@@ -309,7 +391,9 @@ export class ExecutionService implements OnModuleInit {
     code: string,
     lang: LangKey,
     testCaseIndex = 0,
+    offset = 0,
   ): Promise<TraceResult> {
+    offset = Math.min(Math.max(Math.floor(offset) || 0, 0), MAX_TRACE_OFFSET);
     const problem = await this.prisma.problem.findUnique({
       where: { id: problemId },
       include: { testCases: { orderBy: { order: 'asc' } } },
@@ -336,29 +420,51 @@ export class ExecutionService implements OnModuleInit {
       );
     }
 
-    const program = generateTracedDriver(lang, code, spec, testCase.input);
-    const prepared = await this.executor.prepare(lang, program, { timeoutMs: this.timeoutMs });
+    // C++ and Java: try the line-by-line instrumented build first. If it does
+    // not compile (unusual syntax the instrumenter mishandled) fall back to the
+    // plain driver, which also yields the student's own, accurate compile error.
+    let instrumented = false;
+    let plainProgram: string | null = null;
+    let prepared = null as Awaited<ReturnType<Executor['prepare']>> | null;
+    const inst = instrumentedDriver(lang, code, spec, testCase.input, offset);
+    if (inst) {
+      const attempt = await this.executor.prepare(lang, inst, { timeoutMs: this.timeoutMs });
+      if (attempt.compileError) await attempt.dispose();
+      else {
+        prepared = attempt;
+        instrumented = true;
+      }
+    }
+    if (!prepared) {
+      plainProgram = generateTracedDriver(lang, code, spec, testCase.input, offset);
+      prepared = await this.executor.prepare(lang, plainProgram, { timeoutMs: this.timeoutMs });
+    }
 
     try {
       if (prepared.compileError) {
         return {
           ok: false,
           truncated: false,
+          offset,
+          nextOffset: null,
           events: [],
           stdout: '',
           stderr: '',
           exitCode: null,
           timedOut: false,
           compileError: prepared.compileError,
+          errorLine: plainProgram
+            ? locateErrorLine(lang, prepared.compileError, codeOffset(lang, plainProgram, code), code)
+            : null,
           executionMs: 0,
-          fidelity: traceFidelity(lang),
+          fidelity: traceFidelity(lang, instrumented),
         };
       }
 
       // A traced run emits far more output than a plain one.
       const run = await prepared.run('', {
         timeoutMs: this.timeoutMs,
-        maxOutputBytes: 4 * 1024 * 1024,
+        maxOutputBytes: 12 * 1024 * 1024,
       });
 
       const { events, truncated, remainder } = extractTraceEvents(run.stdout);
@@ -367,14 +473,19 @@ export class ExecutionService implements OnModuleInit {
       return {
         ok: !run.timedOut && run.exitCode === 0,
         truncated,
+        offset,
+        nextOffset: truncated ? offset + events.length : null,
         events,
         stdout: studentOutput,
         stderr: run.stderr.trim(),
         exitCode: run.exitCode,
         timedOut: run.timedOut,
         compileError: null,
+        errorLine: plainProgram
+          ? locateErrorLine(lang, run.stderr, codeOffset(lang, plainProgram, code), code)
+          : null,
         executionMs: run.executionMs,
-        fidelity: traceFidelity(lang),
+        fidelity: traceFidelity(lang, instrumented),
       };
     } finally {
       await prepared.dispose();

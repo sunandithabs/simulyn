@@ -25,10 +25,20 @@ export default function StudentExamsPage() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    void api
-      .get<ExamSummary[]>('/exams')
-      .then(setExams)
-      .catch(() => setExams([]));
+    const load = () =>
+      void api
+        .get<ExamSummary[]>('/exams')
+        .then(setExams)
+        .catch(() => setExams((previous) => previous ?? []));
+    load();
+    // Teachers publish/open exams at any time; refresh without a reload.
+    const poll = setInterval(load, 15_000);
+    const onVisible = () => document.visibilityState === 'visible' && load();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Keep the countdowns honest.
@@ -64,7 +74,13 @@ export default function StudentExamsPage() {
           ) : (
             exams.map((exam) => {
               const start = new Date(exam.scheduledStart).getTime();
+              const end = new Date(exam.scheduledEnd).getTime();
               const untilStart = (start - Date.now()) / 1000;
+              // Recomputed every tick so the badge never lags the server clock.
+              if (exam.status !== 'DRAFT') {
+                const now = Date.now();
+                exam = { ...exam, status: now < start ? 'SCHEDULED' : now > end ? 'COMPLETED' : 'ACTIVE' };
+              }
 
               return (
                 <Link key={exam.id} href={`/student/exams/${exam.id}`} className="block">

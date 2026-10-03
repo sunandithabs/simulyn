@@ -1,6 +1,6 @@
 'use client';
 
-import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,10 @@ export function PlaybackControls({
   onSeek,
   onSpeed,
   disabled,
+  stepLabel,
+  canJumpBack = false,
+  canJumpForward = false,
+  onJumpChange,
 }: {
   step: number;
   total: number;
@@ -30,11 +34,29 @@ export function PlaybackControls({
   onSeek: (step: number) => void;
   onSpeed: (speed: Speed) => void;
   disabled?: boolean;
+  /** Overrides the "n / total" readout, e.g. when the trace is paged. */
+  stepLabel?: string;
+  canJumpBack?: boolean;
+  canJumpForward?: boolean;
+  /** Jump to the previous (-1) or next (1) step where a variable changed. */
+  onJumpChange?: (direction: -1 | 1) => void;
 }) {
   return (
     <div className="border-t border-line bg-ink-sunken/60 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
+          {onJumpChange ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Previous change"
+              title="Jump to the previous step where a variable changed ([)"
+              disabled={disabled || !canJumpBack}
+              onClick={() => onJumpChange(-1)}
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon"
@@ -64,6 +86,18 @@ export function PlaybackControls({
           >
             <SkipForward className="h-3.5 w-3.5" />
           </Button>
+          {onJumpChange ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Next change"
+              title="Jump to the next step where a variable changed (])"
+              disabled={disabled || !canJumpForward}
+              onClick={() => onJumpChange(1)}
+            >
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1 rounded-lg border border-line bg-ink-sunken p-0.5">
@@ -86,7 +120,7 @@ export function PlaybackControls({
         <div className="ml-auto text-right">
           <span className="instrument">Step</span>
           <div className="font-mono text-[13px] text-brass-lit tabular">
-            {total === 0 ? '—' : `${step + 1} / ${total}`}
+            {total === 0 ? '—' : (stepLabel ?? `${step + 1} / ${total}`)}
           </div>
         </div>
       </div>

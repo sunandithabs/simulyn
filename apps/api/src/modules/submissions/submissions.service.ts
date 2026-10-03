@@ -44,6 +44,7 @@ export interface SubmissionResponse {
     actual: string | null;
     stdout?: string | null;
     passed: boolean;
+    verdict?: 'AC' | 'WA' | 'RE' | 'TLE' | 'NO_OUTPUT';
     stderr: string | null;
     exitCode: number | null;
     timedOut: boolean;
@@ -183,6 +184,7 @@ export class SubmissionsService {
         // Live only — debug output is not worth a column on TestResult.
         stdout: r.stdout,
         passed: r.passed,
+        verdict: r.verdict,
         stderr: r.stderr,
         exitCode: r.exitCode,
         timedOut: r.timedOut,
@@ -318,6 +320,7 @@ export class SubmissionsService {
       expected: r.expected,
       actual: r.actual,
       passed: r.passed,
+      verdict: (r.passed ? 'AC' : r.timedOut ? 'TLE' : 'WA') as 'AC' | 'WA' | 'TLE',
       stderr: r.stderr,
       exitCode: r.exitCode,
       timedOut: r.timedOut,
@@ -410,6 +413,7 @@ export class SubmissionsService {
                 expected: 'hidden',
                 actual: r.actual === null ? null : 'hidden',
                 stdout: null,
+                verdict: r.passed ? ('AC' as const) : r.timedOut ? ('TLE' as const) : ('WA' as const),
                 stderr: r.stderr ? HIDDEN_ERROR_NOTICE : null,
                 exitCode: null,
               }

@@ -4,12 +4,14 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDefined,
   IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -33,6 +35,11 @@ export class RunCodeDto {
   @IsOptional()
   @MaxLength(100_000)
   stdin?: string;
+
+  @ApiPropertyOptional({ description: 'Run through this problem’s harness so main is supplied' })
+  @IsString()
+  @IsOptional()
+  problemId?: string;
 }
 
 export class SubmitCodeDto {
@@ -50,6 +57,11 @@ export class SubmitCodeDto {
   @IsString()
   @IsNotEmpty()
   problemId!: string;
+
+  @ApiPropertyOptional({ description: 'Run only the visible sample cases (the Run button)' })
+  @IsBoolean()
+  @IsOptional()
+  visibleOnly?: boolean;
 }
 
 export class TraceCodeDto {
@@ -77,6 +89,17 @@ export class TraceCodeDto {
   @Min(0)
   @IsOptional()
   testCaseIndex?: number;
+
+  @ApiPropertyOptional({
+    default: 0,
+    description: 'Number of steps to skip, for paging through a long run.',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100_000)
+  @IsOptional()
+  offset?: number;
 }
 
 export class ElectronicsAnswerDto {
