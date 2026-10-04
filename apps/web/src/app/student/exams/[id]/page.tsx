@@ -60,6 +60,9 @@ export default function StudentExamPage() {
   const router = useRouter();
 
   const [exam, setExam] = useState<ExamDetail | null>(null);
+  /** Server clock minus this browser's clock, in ms, so both agree on "now". */
+  const [skew, setSkew] = useState(0);
+  const [clock, setClock] = useState(() => Date.now());
   const [attempt, setAttempt] = useState<ExamStartResponse | null>(null);
   const [starting, setStarting] = useState(false);
 
@@ -90,15 +93,44 @@ export default function StudentExamPage() {
   const answer = current ? answers[current.problem.id] : undefined;
 
   // ── loading ───────────────────────────────────────────────────────
+  const loadExam = useCallback(
+    () =>
+      api.get<ExamDetail>(`/exams/${examId}`).then((fresh) => {
+        if (fresh.serverTime) setSkew(new Date(fresh.serverTime).getTime() - Date.now());
+        setExam(fresh);
+      }),
+    [examId],
+  );
+
   useEffect(() => {
-    void api
-      .get<ExamDetail>(`/exams/${examId}`)
-      .then(setExam)
-      .catch(() => {
-        toast.error('That exam could not be loaded');
-        router.push('/student/exams');
-      });
-  }, [examId, router]);
+    void loadExam().catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'That exam could not be loaded');
+      router.push('/student/exams');
+    });
+  }, [loadExam, router]);
+
+  // The status the server sent is a snapshot. Tick a clock so "Opens at …" turns
+  // into a Start button on its own, and refetch when the student returns to the tab.
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void loadExam().catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [loadExam]);
+
+  const liveStatus = useMemo(() => {
+    if (!exam) return null;
+    if (exam.status === 'DRAFT') return 'DRAFT' as const;
+    const now = clock + skew;
+    if (now < new Date(exam.scheduledStart).getTime()) return 'SCHEDULED' as const;
+    if (now > new Date(exam.scheduledEnd).getTime()) return 'COMPLETED' as const;
+    return 'ACTIVE' as const;
+  }, [exam, clock, skew]);
 
   /**
    * Fullscreen is requested, not required: some browsers refuse a programmatic
@@ -394,7 +426,7 @@ export default function StudentExamPage() {
                 You submitted this exam · {exam.attempt.totalScore} points · integrity{' '}
                 {exam.attempt.integrityScore}
               </div>
-            ) : exam.status === 'ACTIVE' ? (
+            ) : liveStatus === 'ACTIVE' ? (
               <Button
                 size="lg"
                 className="mt-5 w-full"
@@ -409,7 +441,7 @@ export default function StudentExamPage() {
               </Button>
             ) : (
               <div className="mt-5 rounded-lg border border-line px-4 py-3 text-center text-[13px] text-muted">
-                {exam.status === 'SCHEDULED'
+                {liveStatus === 'SCHEDULED'
                   ? `Opens ${formatDateTime(exam.scheduledStart)}`
                   : 'This exam has closed'}
               </div>

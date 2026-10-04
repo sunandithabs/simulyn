@@ -246,6 +246,8 @@ export interface ExamSummary {
   gracePeriodMin: number;
   isPublished: boolean;
   status: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'COMPLETED';
+  /** The server's clock when this was sent, so a skewed browser clock can be corrected for. */
+  serverTime?: string;
   class: { id: string; name: string; code: string };
   _count: { problems: number; attempts: number };
   attempt: {
