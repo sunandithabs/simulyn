@@ -23,12 +23,17 @@ const TONE = {
 export default function StudentExamsPage() {
   const [exams, setExams] = useState<ExamSummary[] | null>(null);
   const [, setTick] = useState(0);
+  /** When this browser received the list; paired with the server's clock to correct for skew. */
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
 
   useEffect(() => {
     const load = () =>
       void api
         .get<ExamSummary[]>('/exams')
-        .then(setExams)
+        .then((list) => {
+          setLoadedAt(Date.now());
+          setExams(list);
+        })
         .catch(() => setExams((previous) => previous ?? []));
     load();
     // Teachers publish/open exams at any time; refresh without a reload.
@@ -75,10 +80,12 @@ export default function StudentExamsPage() {
             exams.map((exam) => {
               const start = new Date(exam.scheduledStart).getTime();
               const end = new Date(exam.scheduledEnd).getTime();
-              const untilStart = (start - Date.now()) / 1000;
+              // The server's clock, not this browser's, decides when an exam is open.
+              const nowMs = Date.now() + (exam.serverTime ? new Date(exam.serverTime).getTime() - loadedAt : 0);
+              const untilStart = (start - nowMs) / 1000;
               // Recomputed every tick so the badge never lags the server clock.
               if (exam.status !== 'DRAFT') {
-                const now = Date.now();
+                const now = nowMs;
                 exam = { ...exam, status: now < start ? 'SCHEDULED' : now > end ? 'COMPLETED' : 'ACTIVE' };
               }
 
