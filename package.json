@@ -17,6 +17,8 @@
     "db:migrate": "pnpm --filter @simulyn/shared db:migrate",
     "db:push": "pnpm --filter @simulyn/shared db:push",
     "db:seed": "pnpm --filter @simulyn/shared db:seed",
+    "db:demo": "pnpm --filter @simulyn/shared db:demo",
+    "db:demo:remove": "pnpm --filter @simulyn/shared db:demo:remove",
     "db:studio": "pnpm --filter @simulyn/shared db:studio",
     "db:reset": "pnpm --filter @simulyn/shared db:reset"
   },

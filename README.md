@@ -158,6 +158,29 @@ teacher and student accounts. The credentials are defined in
 Seeded students have `mustChangePassword: true` and are asked for a new password on first
 sign-in. For a demo you can set that to `false` in the seed file and re-seed.
 
+### Demo data
+
+`pnpm db:seed` wipes the database, so don't run it once real users exist. To fill the
+dashboards without touching anything real, use the demo-data script instead:
+
+```bash
+pnpm db:demo                  # add 40 demo students and about two months of activity
+pnpm db:demo --students=80    # more students (also: --days, --class=CODE, --no-upcoming, --seed)
+pnpm db:demo --reset          # remove the old demo data, then generate fresh data
+pnpm db:demo:remove           # remove all demo data
+```
+
+It enrols the demo students in your existing classes, so teacher and class analytics show
+real and demo activity together. It adds submissions with test results, exams with
+attempts and proctoring violations, discussion threads, mentor requests, XP, streaks and
+badges. It never deletes or edits existing rows. Every row it creates has an id starting
+with `demo_`, which is how `--remove` finds exactly what it added. Demo students have
+random passwords nobody knows, so they can't sign in. Research consent and survey rows
+are never generated, so demo data can't end up in a study export.
+
+On the server, run it the same way as the seed:
+`docker compose -f docker-compose.prod.yml run --rm api pnpm --filter @simulyn/shared db:demo`.
+
 ---
 
 ## Environment variables
@@ -360,7 +383,8 @@ pnpm build                  # build all packages
 pnpm lint                   # typecheck everything
 
 pnpm db:push                # sync schema without a migration (dev)
-pnpm db:seed                # wipe and repopulate demo data
+pnpm db:seed                # wipe and repopulate demo data (destroys real data)
+pnpm db:demo                # add demo activity without touching real data
 pnpm db:studio              # browse the database
 pnpm db:generate            # regenerate the Prisma client
 ```
