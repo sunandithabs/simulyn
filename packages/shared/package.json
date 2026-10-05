@@ -30,6 +30,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:bootstrap": "tsx prisma/bootstrap.ts",
+    "db:check": "node scripts/check-migrations.mjs",
     "db:demo": "tsx prisma/demo-data.ts",
     "db:demo:remove": "tsx prisma/demo-data.ts --remove",
     "db:studio": "prisma studio",

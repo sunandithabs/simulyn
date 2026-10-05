@@ -383,6 +383,7 @@ pnpm build                  # build all packages
 pnpm lint                   # typecheck everything
 
 pnpm db:push                # sync schema without a migration (dev)
+pnpm db:check               # fail if the schema has a column no migration creates
 pnpm db:seed                # wipe and repopulate demo data (destroys real data)
 pnpm db:demo                # add demo activity without touching real data
 pnpm db:studio              # browse the database
