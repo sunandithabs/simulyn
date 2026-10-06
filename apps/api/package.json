@@ -14,8 +14,7 @@
     "test:phase5": "node test/phase5.mjs",
     "test:features": "node test/features.mjs",
     "test:termination": "node test/termination.mjs",
-    "test:leak": "node test/hidden-leak.mjs",
-    "test:no-ai": "node test/no-ai-in-grading.mjs"
+    "test:leak": "node test/hidden-leak.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.12",

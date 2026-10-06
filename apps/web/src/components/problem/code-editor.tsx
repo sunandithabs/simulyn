@@ -2,10 +2,12 @@
 
 import Editor, { loader, type Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCode } from '@/lib/format-code';
+import { useTheme } from '@/hooks/useTheme';
+import { formatCode } from '@/lib/format';
+import { isMidnight } from '@/lib/themes';
 import type { LangKey } from '@/lib/types';
 
 // Load Monaco from this server rather than a CDN — the deployment target may
@@ -49,8 +51,35 @@ const MONACO_LANGUAGE: Record<LangKey, string> = {
 };
 
 export const THEME_NAME = 'simulyn-bench';
+const MIDNIGHT_THEME = 'simulyn-midnight';
 
 function defineTheme(monaco: Monaco) {
+  monaco.editor.defineTheme(MIDNIGHT_THEME, {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '6b6b80', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'a78bfa' },
+      { token: 'string', foreground: 'd8b4fe' },
+      { token: 'number', foreground: 'f5f5f5' },
+      { token: 'type', foreground: 'c4b5fd' },
+      { token: 'function', foreground: 'ffffff' },
+    ],
+    colors: {
+      'editor.background': '#000000',
+      'editor.foreground': '#f5f5f5',
+      'editorLineNumber.foreground': '#3f3f55',
+      'editorLineNumber.activeForeground': '#a78bfa',
+      'editor.selectionBackground': '#7c3aed55',
+      'editor.lineHighlightBackground': '#ffffff08',
+      'editorCursor.foreground': '#a78bfa',
+      'editorIndentGuide.background1': '#ffffff0d',
+      'editorWidget.background': '#0a0a10',
+      'editorWidget.border': '#ffffff1f',
+      'scrollbarSlider.background': '#2a2a4088',
+    },
+  });
+
   monaco.editor.defineTheme(THEME_NAME, {
     base: 'vs-dark',
     inherit: true,
@@ -78,144 +107,130 @@ function defineTheme(monaco: Monaco) {
   });
 }
 
-export interface CodeEditorHandle {
-  /** Re-lays out the code. Goes through the editor, so Undo brings the old layout back. */
-  format: () => void;
-}
-
-export interface EditorErrorMarker {
-  line: number;
-  message: string;
-}
-
-export const CodeEditor = forwardRef<
-  CodeEditorHandle,
-  {
-    language: LangKey;
-    value: string;
-    onChange: (value: string) => void;
-    onRun?: () => void;
-    onSubmit?: () => void;
-    readOnly?: boolean;
-    /** The line the visualiser is on; gets a band across the editor and a marker in the gutter. */
-    highlightLine?: number | null;
-    /** A compile or runtime error to underline. */
-    error?: EditorErrorMarker | null;
-  }
->(function CodeEditor(
-  { language, value, onChange, onRun, onSubmit, readOnly, highlightLine = null, error = null },
-  ref,
-) {
+export function CodeEditor({
+  language,
+  value,
+  onChange,
+  onRun,
+  onSubmit,
+  readOnly,
+  activeLine,
+  errorLine,
+  errorMessage,
+  onReady,
+}: {
+  language: LangKey;
+  value: string;
+  onChange: (value: string) => void;
+  onRun?: () => void;
+  onSubmit?: () => void;
+  readOnly?: boolean;
+  /** Line the visualiser is on, highlighted while replaying a trace. */
+  activeLine?: number | null;
+  /** Line a compile or runtime error points at. */
+  errorLine?: number | null;
+  errorMessage?: string;
+  /** Hands the parent actions that need the live editor. */
+  onReady?: (api: { format: () => void }) => void;
+}) {
   // Handlers are kept in refs so the Monaco commands never capture stale state.
   const runRef = useRef(onRun);
   const submitRef = useRef(onSubmit);
   runRef.current = onRun;
   submitRef.current = onSubmit;
 
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const instance = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  const languageRef = useRef(language);
-  languageRef.current = language;
-  const lineDecoration = useRef<editor.IEditorDecorationsCollection | null>(null);
+  const activeDecor = useRef<editor.IEditorDecorationsCollection | null>(null);
+  const [ready, setReady] = useState(false);
+  const { themeId } = useTheme();
 
-  const format = useCallback(() => {
-    const instance = editorRef.current;
-    const model = instance?.getModel();
-    if (!instance || !model) return;
-
-    const before = model.getValue();
-    const after = formatCode(languageRef.current, before);
-    if (after === before) return;
-
-    // executeEdits keeps the undo stack, and pushing the selection back
-    // stops the cursor jumping to the end of the file.
-    const selection = instance.getSelection();
-    instance.executeEdits('simulyn-format', [{ range: model.getFullModelRange(), text: after }]);
-    if (selection) instance.setSelection(selection);
-    instance.pushUndoStop();
-  }, []);
-
-  useImperativeHandle(ref, () => ({ format }), [format]);
-
-  // The band that follows the visualiser's current step.
   useEffect(() => {
-    const instance = editorRef.current;
+    const ed = instance.current;
     const monaco = monacoRef.current;
-    if (!instance || !monaco) return;
+    if (!ready || !ed || !monaco) return;
+    onReady?.({
+      format: () => {
+        if (language === 'javascript') {
+          void ed.getAction('editor.action.formatDocument')?.run();
+          return;
+        }
+        const model = ed.getModel();
+        if (!model) return;
+        const next = formatCode(language, model.getValue());
+        if (next !== model.getValue()) {
+          ed.executeEdits('format', [{ range: model.getFullModelRange(), text: next }]);
+        }
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, language]);
 
-    lineDecoration.current ??= instance.createDecorationsCollection();
-    const count = instance.getModel()?.getLineCount() ?? 0;
-    if (!highlightLine || highlightLine < 1 || highlightLine > count) {
-      lineDecoration.current.clear();
-      return;
-    }
-    lineDecoration.current.set([
-      {
-        range: new monaco.Range(highlightLine, 1, highlightLine, 1),
-        options: {
-          isWholeLine: true,
-          className: 'viz-exec-line',
-          glyphMarginClassName: 'viz-exec-glyph',
+  useEffect(() => {
+    const ed = instance.current;
+    const monaco = monacoRef.current;
+    if (!ready || !ed || !monaco || !activeDecor.current) return;
+    if (activeLine && activeLine > 0) {
+      activeDecor.current.set([
+        {
+          range: new monaco.Range(activeLine, 1, activeLine, 1),
+          options: { isWholeLine: true, className: 'sim-active-line' },
         },
-      },
-    ]);
-    instance.revealLineInCenterIfOutsideViewport(highlightLine, 0);
-  }, [highlightLine, value]);
-
-  // Error underline, via the same markers Monaco uses for its own diagnostics.
-  useEffect(() => {
-    const monaco = monacoRef.current;
-    const model = editorRef.current?.getModel();
-    if (!monaco || !model) return;
-
-    if (!error || error.line < 1 || error.line > model.getLineCount()) {
-      monaco.editor.setModelMarkers(model, 'simulyn', []);
-      return;
+      ]);
+      ed.revealLineInCenterIfOutsideViewport(activeLine);
+    } else {
+      activeDecor.current.set([]);
     }
-    monaco.editor.setModelMarkers(model, 'simulyn', [
-      {
-        severity: monaco.MarkerSeverity.Error,
-        message: error.message,
-        startLineNumber: error.line,
-        startColumn: model.getLineFirstNonWhitespaceColumn(error.line) || 1,
-        endLineNumber: error.line,
-        endColumn: model.getLineMaxColumn(error.line),
-      },
-    ]);
-    editorRef.current?.revealLineInCenterIfOutsideViewport(error.line, 0);
-  }, [error, value, language]);
+  }, [activeLine, ready]);
+
+  useEffect(() => {
+    const ed = instance.current;
+    const monaco = monacoRef.current;
+    const model = ed?.getModel();
+    if (!ready || !monaco || !model) return;
+    const line = errorLine && errorLine <= model.getLineCount() ? errorLine : null;
+    monaco.editor.setModelMarkers(
+      model,
+      'simulyn',
+      line
+        ? [
+            {
+              severity: monaco.MarkerSeverity.Error,
+              message: errorMessage || 'Error on this line',
+              startLineNumber: line,
+              endLineNumber: line,
+              startColumn: 1,
+              endColumn: model.getLineMaxColumn(line),
+            },
+          ]
+        : [],
+    );
+  }, [errorLine, errorMessage, ready]);
 
   return (
     <Editor
       language={MONACO_LANGUAGE[language]}
-      theme={THEME_NAME}
+      theme={isMidnight(themeId) ? MIDNIGHT_THEME : THEME_NAME}
       value={value}
       onChange={(next) => onChange(next ?? '')}
       beforeMount={defineTheme}
-      onMount={(instance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
-        editorRef.current = instance;
+      onMount={(mounted: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+        instance.current = mounted;
         monacoRef.current = monaco;
-        instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current?.());
-        instance.addCommand(
+        activeDecor.current = mounted.createDecorationsCollection([]);
+        mounted.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current?.());
+        mounted.addCommand(
           monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter,
           () => submitRef.current?.(),
         );
-        instance.addAction({
-          id: 'simulyn.format',
-          label: 'Format code',
-          keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
-          contextMenuGroupId: '1_modification',
-          contextMenuOrder: 1.5,
-          run: () => format(),
-        });
+        setReady(true);
       }}
       loading={<Skeleton className="h-full w-full rounded-none" />}
       options={{
         readOnly,
-        glyphMargin: true,
         fontSize: 13.5,
         fontFamily: 'var(--font-jetbrains), ui-monospace, monospace',
-        fontLigatures: true,
+        fontLigatures: '"calt" 1, "liga" 1',
         lineHeight: 1.65,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
@@ -228,7 +243,10 @@ export const CodeEditor = forwardRef<
         scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
         overviewRulerLanes: 0,
         bracketPairColorization: { enabled: true },
+        cursorSmoothCaretAnimation: 'on',
+        guides: { bracketPairs: true },
+        glyphMargin: false,
       }}
     />
   );
-});
+}

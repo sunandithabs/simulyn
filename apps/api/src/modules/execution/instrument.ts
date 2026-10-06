@@ -8,7 +8,7 @@
  */
 import { MAX_TRACE_EVENTS, TRACE_MARKER } from './trace.types';
 
-export type InstrumentLang = 'cpp' | 'java';
+export type InstrumentLang = 'cpp' | 'java' | 'js';
 
 type Kind = 'global' | 'class' | 'func' | 'block' | 'init';
 interface Scope {
@@ -41,7 +41,7 @@ function describe(stmt: string): string {
 }
 
 /** Last identifier of a parameter declaration, e.g. `vector<int>& nums` -> nums. */
-function paramNames(header: string): string[] {
+function paramNames(header: string, lang: InstrumentLang): string[] {
   const open = header.indexOf('(');
   if (open === -1) return [];
   let depth = 0;
@@ -71,6 +71,11 @@ function paramNames(header: string): string[] {
   const out: string[] = [];
   for (const part of parts) {
     const withoutDefault = part.split('=')[0];
+    if (lang === 'js') {
+      const bare = withoutDefault.trim().replace(/^\.\.\./, '');
+      if (/^[A-Za-z_$][\w$]*$/.test(bare)) out.push(bare);
+      continue;
+    }
     const match = /([A-Za-z_]\w*)\s*(\[\s*\])*\s*$/.exec(withoutDefault.trim());
     // Needs a type in front of it, or `void` / a bare type would be mistaken for a name.
     if (match && /\s|[*&>\]]/.test(withoutDefault.trim().slice(0, match.index + 1))) out.push(match[1]);
@@ -81,6 +86,10 @@ function paramNames(header: string): string[] {
 /** Names declared (with an initialiser) by one statement. */
 function declared(stmt: string, lang: InstrumentLang): string[] {
   const s = stmt.trim().replace(/;$/, '');
+  if (lang === 'js') {
+    const m = /^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/.exec(s);
+    return m ? [m[1]] : [];
+  }
   const first = /^(?:(?:const|static|final|unsigned|signed|long|short|volatile)\s+)*([A-Za-z_][\w:.]*)/.exec(s);
   if (!first || NOT_A_TYPE.has(first[1])) return [];
 
@@ -122,6 +131,11 @@ function headerVars(header: string, lang: InstrumentLang): string[] {
     const m = /([A-Za-z_]\w*)\s*$/.exec(inner.trim());
     return m ? [m[1]] : [];
   }
+  if (lang === 'js') {
+    const each = /^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s+(?:of|in)\b/.exec(inner);
+    if (each) return [each[1]];
+    return declared(inner.split(';')[0], lang);
+  }
   const colon = inner.indexOf(':');
   if (colon !== -1 && !inner.includes(';')) {
     const m = /([A-Za-z_]\w*)\s*$/.exec(inner.slice(0, colon).trim());
@@ -143,22 +157,23 @@ export function instrumentSource(
   let pending: string[] = [];
   let steps = 0;
   let fnName = '';
-  let stmtPos = 0; // where the current statement starts in `code`
-  let parenStart = 0; // where the last top-level `(` was, i.e. where a function's name is
+  let className = '';
+  let stmtStart = 0;
 
-  // Steps carry the student's own line number. The instrumented text adds no
-  // newlines, so a line here is a line in the editor.
-  const lineStarts: number[] = [0];
-  for (let p = 0; p < code.length; p++) if (code[p] === '\n') lineStarts.push(p + 1);
-  const lineAt = (pos: number): number => {
+  const lineStarts = [0];
+  for (let k = 0; k < code.length; k++) if (code[k] === '\n') lineStarts.push(k + 1);
+  const lineAt = (idx: number): number => {
     let lo = 0;
     let hi = lineStarts.length - 1;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
-      if (lineStarts[mid] <= pos) lo = mid;
+      if (lineStarts[mid] <= idx) lo = mid;
       else hi = mid - 1;
     }
     return lo + 1;
+  };
+  const touch = (idx: number) => {
+    if (!stmt.trim() && !/\s/.test(code[idx])) stmtStart = idx;
   };
 
   const top = () => stack[stack.length - 1];
@@ -180,9 +195,12 @@ export function instrumentSource(
   const step = (kind: string, text: string): string => {
     steps++;
     const vars = visible();
-    return lang === 'cpp'
-      ? ` simulyn::step(${q(kind)},${q(describe(text))},${lineAt(stmtPos)},{${vars.map((v) => `simulyn::mk(${q(v)},${v})`).join(',')}});`
-      : ` Sim.step(${q(kind)},${q(describe(text))},${lineAt(stmtPos)}${vars.map((v) => `,${q(v)},${v}`).join('')});`;
+    const head = `${q(kind)},${q(describe(text))},${lineAt(stmtStart)},${q(fnName)}`;
+    if (lang === 'cpp') {
+      return ` simulyn::step(${head},{${vars.map((v) => `simulyn::mk(${q(v)},${v})`).join(',')}});`;
+    }
+    if (lang === 'js') return ` __sim.step(${head},{${vars.join(',')}});`;
+    return ` Sim.step(${head}${vars.map((v) => `,${q(v)},${v}`).join('')});`;
   };
   const resetStmt = () => {
     stmt = '';
@@ -194,8 +212,6 @@ export function instrumentSource(
   while (i < n) {
     const ch = code[i];
     const next = code[i + 1];
-
-    if (stmt.trim() === '' && !/\s/.test(ch)) stmtPos = i;
 
     // Preprocessor line (C++): copied untouched.
     if (lang === 'cpp' && ch === '#' && /^\s*$/.test(code.slice(code.lastIndexOf('\n', i - 1) + 1, i))) {
@@ -219,11 +235,12 @@ export function instrumentSource(
       i = end;
       continue;
     }
-    if (ch === '"' || ch === "'") {
+    if (ch === '"' || ch === "'" || (lang === 'js' && ch === '`')) {
       let end = i + 1;
       while (end < n && code[end] !== ch) end += code[end] === '\\' ? 2 : 1;
       end = Math.min(end + 1, n);
       const lit = code.slice(i, end);
+      touch(i);
       out += lit;
       stmt += lit;
       if (paren > 0) parenText += lit;
@@ -232,10 +249,8 @@ export function instrumentSource(
     }
 
     if (ch === '(') {
-      if (paren === 0) {
-        parenText = '';
-        parenStart = i;
-      }
+      if (paren === 0) parenText = '';
+      touch(i);
       paren++;
     }
     if (paren > 0) {
@@ -260,7 +275,9 @@ export function instrumentSource(
         else if (
           header.includes('(') &&
           !/^(if|for|while|switch)\b/.test(header) &&
-          /\)\s*(?:(?:const|noexcept|override|final|mutable)\s*|throws\s+[\w.,\s]+)*$/.test(header)
+          (lang === 'js'
+            ? /(?:\)|=>)\s*$/.test(header)
+            : /\)\s*(?:(?:const|noexcept|override|final|mutable)\s*|throws\s+[\w.,\s]+)*$/.test(header))
         )
           kind = 'func';
       } else if (parent.kind === 'func' || parent.kind === 'block') {
@@ -272,11 +289,22 @@ export function instrumentSource(
           kind = 'block';
       }
 
+      if (kind === 'class') {
+        const cm = /\b(?:class|struct|interface)\s+([A-Za-z_]\w*)/.exec(header);
+        if (cm) className = cm[1];
+      }
       const scope: Scope = { kind, vars: [] };
       if (kind === 'func') {
-        scope.vars = paramNames(header);
-        const nm = /([A-Za-z_]\w*)\s*\(/.exec(header);
-        fnName = nm ? nm[1] : 'function';
+        const assigned = /([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function\b|\()/.exec(header);
+        const nm = assigned ?? /([A-Za-z_$][\w$]*)\s*\(/.exec(header);
+        // Constructors may need `this(...)`/`super(...)` first, so leave them alone.
+        if (nm && (nm[1] === className || nm[1] === 'constructor')) {
+          kind = 'init';
+          scope.kind = 'init';
+        } else {
+          scope.vars = paramNames(header, lang);
+          fnName = nm ? nm[1] : 'function';
+        }
       }
       if (kind === 'block') scope.vars = pending;
       pending = [];
@@ -285,13 +313,7 @@ export function instrumentSource(
       i++;
 
       if (kind === 'func') {
-        // The header may trail an access label (`public:`); point at the name.
-        stmtPos = parenStart;
-        // Track the call stack: a scope guard in C++, try/finally in Java.
-        out +=
-          lang === 'cpp'
-            ? ` simulyn::Frame _simulyn_frame(${q(fnName)});`
-            : ` Sim.enter(${q(fnName)}); try {`;
+        out += lang === 'cpp' ? ' simulyn::Depth _simDepth;' : lang === 'java' ? ' Sim.depth++; try {' : ' __sim.depth++; try {';
         out += step('visit', `call ${fnName}(${scope.vars.join(', ')})`);
         resetStmt();
       } else if (kind === 'block') {
@@ -308,7 +330,7 @@ export function instrumentSource(
 
     if (ch === '}') {
       const popped = stack.length > 1 ? stack.pop()! : top();
-      if (popped.kind === 'func' && lang === 'java') out += ' } finally { Sim.exit(); } ';
+      if (popped.kind === 'func' && lang !== 'cpp') out += ` } finally { ${lang === 'java' ? 'Sim' : '__sim'}.depth--; } `;
       out += ch;
       i++;
       if (popped.kind === 'init') stmt += ch;
@@ -337,6 +359,14 @@ export function instrumentSource(
       continue;
     }
 
+    // `public:` / `private:` are labels, not part of the next declaration.
+    if (ch === ':' && lang === 'cpp' && /^(public|private|protected)$/.test(stmt.trim())) {
+      out += ch;
+      i++;
+      resetStmt();
+      continue;
+    }
+    touch(i);
     stmt += ch;
     out += ch;
     i++;
@@ -351,6 +381,8 @@ const PTRS = ['i', 'j', 'k', 'l', 'r', 'lo', 'hi', 'mid', 'left', 'right', 'star
 
 export const CPP_STEP_SUPPORT = String.raw`
 namespace simulyn {
+inline int depth = 0;
+struct Depth { Depth() { depth++; } ~Depth() { depth--; } };
 struct Var { string name; string json; int hl; };
 
 template <class T> string js(const T &v, int depth = 0);
@@ -405,17 +437,16 @@ template <class T> Var mk(const char *name, const T &v) {
     return Var{name, js(v), hl};
 }
 
-inline void step(const string &op, const string &desc, int line, initializer_list<Var> vars) {
-    if (_traceStep >= TRACE_SKIP + TRACE_MAX) return;
+inline void step(const string &op, const string &desc, int line, const string &fn, initializer_list<Var> vars) {
+    if (_traceStep >= TRACE_MAX) return;
     _traceStep++;
-    if (_traceStep <= TRACE_SKIP) return;
     string vs = "{", hs = "["; bool fv = true, fh = true;
     for (auto &v : vars) {
         if (!fv) vs += ","; fv = false;
         vs += "\"" + esc(v.name) + "\":" + v.json;
         if (v.hl >= 0) { if (!fh) hs += ","; fh = false; hs += to_string(v.hl); }
     }
-    cout << ${q(TRACE_MARKER)} << "{\"step\":" << _traceStep << ",\"op\":\"" << op << "\",\"vars\":" << vs << "},\"highlights\":" << hs << "],\"line\":" << line << ",\"fn\":\"" << esc(_fnStack.empty() ? string() : _fnStack.back()) << "\",\"depth\":" << _fnStack.size() << ",\"description\":\"" << esc(desc) << "\"}" << endl;
+    cout << ${q(TRACE_MARKER)} << "{\"step\":" << _traceStep << ",\"op\":\"" << op << "\",\"vars\":" << vs << "},\"highlights\":" << hs << "],\"line\":" << line << ",\"fn\":\"" << esc(fn) << "\",\"depth\":" << depth << ",\"description\":\"" << esc(desc) << "\"}" << endl;
 }
 }  // namespace simulyn
 `;
@@ -444,16 +475,11 @@ class Sim {
         return Main.toJson(trim(v));
     }
 
-    static final ArrayList<String> stack = new ArrayList<>();
+    static int depth = 0;
 
-    static void enter(String name) { stack.add(name); }
-
-    static void exit() { if (!stack.isEmpty()) stack.remove(stack.size() - 1); }
-
-    static void step(String op, String desc, int line, Object... kv) {
-        if (Main._traceStep >= Main._traceSkip + Main.TRACE_MAX) return;
+    static void step(String op, String desc, int line, String fn, Object... kv) {
+        if (Main._traceStep >= Main.TRACE_MAX) return;
         Main._traceStep++;
-        if (Main._traceStep <= Main._traceSkip) return;
         StringBuilder vs = new StringBuilder("{");
         TreeSet<Integer> hs = new TreeSet<>();
         boolean first = true;
@@ -472,9 +498,26 @@ class Sim {
         }
         vs.append('}');
         System.out.println(${q(TRACE_MARKER)} + "{\"step\":" + Main._traceStep + ",\"op\":\"" + op
-            + "\",\"vars\":" + vs + ",\"highlights\":" + hs + ",\"line\":" + line
-            + ",\"fn\":\"" + Main.esc(stack.isEmpty() ? "" : stack.get(stack.size() - 1)) + "\",\"depth\":" + stack.size()
-            + ",\"description\":\"" + Main.esc(desc) + "\"}");
+            + "\",\"vars\":" + vs + ",\"highlights\":" + hs + ",\"line\":" + line + ",\"fn\":\"" + Main.esc(fn)
+            + "\",\"depth\":" + depth + ",\"description\":\"" + Main.esc(desc) + "\"}");
     }
 }
+`;
+
+export const JS_STEP_SUPPORT = String.raw`
+globalThis.__sim = {
+  depth: 0,
+  ptrs: ${q(PTRS.join(','))}.split(','),
+  step(op, desc, line, fn, vars) {
+    const safe = {};
+    const marks = [];
+    for (const key of Object.keys(vars)) {
+      let value;
+      try { value = vars[key]; } catch (e) { continue; }
+      safe[key] = _simulynSafe(value);
+      if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 4096 && this.ptrs.includes(key)) marks.push(value);
+    }
+    _simulynEmit(op, safe, marks.sort((a, b) => a - b), desc, { line, fn, depth: this.depth });
+  },
+};
 `;
