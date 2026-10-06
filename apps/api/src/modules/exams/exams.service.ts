@@ -176,7 +176,6 @@ export class ExamsService {
       return {
         ...exam,
         status: statusOf(exam),
-        serverTime: new Date().toISOString(),
         attempt: attempt
           ? {
               id: attempt.id,
@@ -229,7 +228,6 @@ export class ExamsService {
     return {
       ...base,
       status: statusOf(base),
-      serverTime: new Date().toISOString(),
       attempt: attempt
         ? {
             id: attempt.id,

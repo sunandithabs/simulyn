@@ -94,9 +94,11 @@ export function TestResults({
   evaluation,
   running,
   cases,
+  mode = 'submit',
 }: {
   evaluation: EvaluationResult | null;
   running: boolean;
+  mode?: 'run' | 'submit';
   /** Visible cases, listed before anything has been run. */
   cases?: TestCaseView[];
 }) {
@@ -159,8 +161,9 @@ export function TestResults({
             evaluation.allPassed ? 'text-trace' : 'text-fault',
           )}
         >
-          {evaluation.passedCount} of {evaluation.totalCount} cases passed
+          {evaluation.passedCount} of {evaluation.totalCount} {mode === 'run' ? 'sample cases passed' : 'cases passed'}
         </span>
+        {mode === 'run' ? <span className="font-mono text-[10px] text-faint">not scored</span> : null}
         <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/5">
           <div
             className={cn('h-full rounded-full', evaluation.allPassed ? 'bg-trace' : 'bg-fault')}
@@ -211,7 +214,7 @@ export function ConsoleOutput({
       <Empty
         icon={Terminal}
         title="Console is empty"
-        description="Press Run to execute your code and see stdout and stderr here."
+        description="Enter your own input above and press Run input to see the result here."
       />
     );
   }
@@ -257,6 +260,48 @@ export function ConsoleOutput({
           </p>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Run the solution on input of the student's own, through the same harness. */
+export function CustomRunPanel({
+  input,
+  onInput,
+  onRun,
+  result,
+  running,
+  language,
+}: {
+  input: string;
+  onInput: (value: string) => void;
+  onRun: () => void;
+  result: RunResult | null;
+  running: boolean;
+  language: LangKey;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-start gap-3 border-b border-line p-3">
+        <textarea
+          value={input}
+          onChange={(event) => onInput(event.target.value)}
+          spellCheck={false}
+          aria-label="Custom input"
+          placeholder="One argument per line, like the sample cases"
+          className="h-20 min-w-0 flex-1 resize-none rounded-lg border border-line bg-ink-sunken px-3 py-2 font-mono text-[12px] text-paper outline-none focus:border-violet-lit/60"
+        />
+        <button
+          onClick={onRun}
+          disabled={running}
+          className="h-8 rounded-lg border border-violet-lit/40 px-3 text-[13px] text-violet-lit transition-colors hover:bg-violet/15 disabled:opacity-45"
+        >
+          {running ? 'Running…' : 'Run input'}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ConsoleOutput result={result} running={running} language={language} />
+      </div>
     </div>
   );
 }

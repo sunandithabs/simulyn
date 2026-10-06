@@ -81,7 +81,6 @@ export default function ExamDetailPage() {
   const [exam, setExam] = useState<ExamDetail | null>(null);
   const [results, setResults] = useState<ExamResults | null>(null);
   const [publishing, setPublishing] = useState(false);
-  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     void api.get<ExamDetail>(`/exams/${examId}`).then(setExam).catch(() => undefined);
@@ -90,35 +89,6 @@ export default function ExamDetailPage() {
       .then(setResults)
       .catch(() => setResults(null));
   }, [examId]);
-
-  /**
-   * Opens the exam right now: publishes it, moves the start a minute into the
-   * past (by the server's clock) and makes sure the window is still open.
-   */
-  async function openNow() {
-    if (!exam) return;
-    setOpening(true);
-    try {
-      const serverNow = exam.serverTime ? new Date(exam.serverTime).getTime() : Date.now();
-      const start = new Date(serverNow - 60_000);
-      const end = new Date(
-        Math.max(new Date(exam.scheduledEnd).getTime(), serverNow + (exam.durationMin + 15) * 60_000),
-      );
-      const updated = await api.patch<ExamDetail>(`/exams/${examId}`, {
-        isPublished: true,
-        scheduledStart: start.toISOString(),
-        scheduledEnd: end.toISOString(),
-      });
-      setExam((previous) => (previous ? { ...previous, ...updated } : updated));
-      toast.success('Exam is open', {
-        description: 'Enrolled students can start it now. Their exam page updates on its own.',
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not open the exam');
-    } finally {
-      setOpening(false);
-    }
-  }
 
   async function setPublished(isPublished: boolean) {
     setPublishing(true);
@@ -183,15 +153,6 @@ export default function ExamDetailPage() {
           </div>
 
           <div className="flex gap-2">
-            {exam && (exam.status === 'DRAFT' || exam.status === 'SCHEDULED') ? (
-              <Button
-                onClick={() => void openNow()}
-                loading={opening}
-                title="Publish the exam and open it to students immediately"
-              >
-                Open now
-              </Button>
-            ) : null}
             {exam && exam.status !== 'DRAFT' ? (
               <Button
                 variant="ghost"
