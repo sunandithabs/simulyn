@@ -33,7 +33,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable} ${syne.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetbrains.variable} ${syne.variable}`}
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('simulyn.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-dvh antialiased">
         <ThemeProvider>
           <AuthProvider>
@@ -43,9 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               position="bottom-right"
               toastOptions={{
                 style: {
-                  background: '#11111f',
-                  border: '1px solid #ffffff1f',
-                  color: '#e9e9f2',
+                  background: 'var(--color-ink-raised)',
+                  border: '1px solid var(--color-line-strong)',
+                  color: 'var(--color-paper)',
                 },
               }}
             />

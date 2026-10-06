@@ -78,7 +78,6 @@ export interface RunResult {
   exitCode: number | null;
   timedOut: boolean;
   compileError: string | null;
-  /** Line in the student's code behind the compile error or crash, when known. */
   errorLine?: number | null;
   executionMs: number;
 }
@@ -103,7 +102,6 @@ export interface EvaluationResult {
   ok: boolean;
   allPassed: boolean;
   compileError: string | null;
-  /** Line in the student's code behind a compile error or a crash on a sample case. */
   errorLine?: number | null;
   results: TestOutcome[];
   passedCount: number;
@@ -141,6 +139,7 @@ export interface Submission {
   maxScore: number;
   attemptNumber: number;
   compileError: string | null;
+  errorLine?: number | null;
   executionMs: number | null;
   createdAt: string;
   passedCount: number;
@@ -246,8 +245,6 @@ export interface ExamSummary {
   gracePeriodMin: number;
   isPublished: boolean;
   status: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'COMPLETED';
-  /** The server's clock when this was sent, so a skewed browser clock can be corrected for. */
-  serverTime?: string;
   class: { id: string; name: string; code: string };
   _count: { problems: number; attempts: number };
   attempt: {

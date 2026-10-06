@@ -20,11 +20,9 @@ export function PlaybackControls({
   onPlayPause,
   onSeek,
   onSpeed,
+  onPrevChange,
+  onNextChange,
   disabled,
-  stepLabel,
-  canJumpBack = false,
-  canJumpForward = false,
-  onJumpChange,
 }: {
   step: number;
   total: number;
@@ -33,26 +31,23 @@ export function PlaybackControls({
   onPlayPause: () => void;
   onSeek: (step: number) => void;
   onSpeed: (speed: Speed) => void;
+  /** Jump to the previous / next step where a variable's value changed. */
+  onPrevChange?: () => void;
+  onNextChange?: () => void;
   disabled?: boolean;
-  /** Overrides the "n / total" readout, e.g. when the trace is paged. */
-  stepLabel?: string;
-  canJumpBack?: boolean;
-  canJumpForward?: boolean;
-  /** Jump to the previous (-1) or next (1) step where a variable changed. */
-  onJumpChange?: (direction: -1 | 1) => void;
 }) {
   return (
     <div className="border-t border-line bg-ink-sunken/60 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
-          {onJumpChange ? (
+          {onPrevChange ? (
             <Button
               variant="ghost"
               size="icon"
               aria-label="Previous change"
-              title="Jump to the previous step where a variable changed ([)"
-              disabled={disabled || !canJumpBack}
-              onClick={() => onJumpChange(-1)}
+              title="Previous change"
+              disabled={disabled || step <= 0}
+              onClick={onPrevChange}
             >
               <ChevronsLeft className="h-3.5 w-3.5" />
             </Button>
@@ -86,14 +81,14 @@ export function PlaybackControls({
           >
             <SkipForward className="h-3.5 w-3.5" />
           </Button>
-          {onJumpChange ? (
+          {onNextChange ? (
             <Button
               variant="ghost"
               size="icon"
               aria-label="Next change"
-              title="Jump to the next step where a variable changed (])"
-              disabled={disabled || !canJumpForward}
-              onClick={() => onJumpChange(1)}
+              title="Next change"
+              disabled={disabled || step >= total - 1}
+              onClick={onNextChange}
             >
               <ChevronsRight className="h-3.5 w-3.5" />
             </Button>
@@ -120,7 +115,7 @@ export function PlaybackControls({
         <div className="ml-auto text-right">
           <span className="instrument">Step</span>
           <div className="font-mono text-[13px] text-brass-lit tabular">
-            {total === 0 ? '—' : (stepLabel ?? `${step + 1} / ${total}`)}
+            {total === 0 ? '—' : `${step + 1} / ${total}`}
           </div>
         </div>
       </div>

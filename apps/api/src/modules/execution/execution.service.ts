@@ -4,13 +4,14 @@ import { parseJsonOrNull, type ElectronicsQuestion } from '@simulyn/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { outputsMatch } from './compare';
-import { codeOffset, locateErrorLine } from './error-line';
 import { Executor, normaliseJavaSource, type LangKey, type RunOutcome } from './executor';
 import {
   assertValidHarness,
   buildProgram,
   generateTracedDriver,
   instrumentedDriver,
+  remapErrorLines,
+  userCodeLineOffset,
   HarnessError,
   RESULT_MARKER,
   traceFidelity,
@@ -18,7 +19,6 @@ import {
 } from './harness';
 import {
   MAX_TRACE_EVENTS,
-  MAX_TRACE_OFFSET,
   TRACE_MARKER,
   type TraceEvent,
   type TraceResult,
@@ -103,17 +103,17 @@ export function extractTraceEvents(raw: string): {
 
     try {
       const event = JSON.parse(line.slice(at + TRACE_MARKER.length)) as TraceEvent;
-      // One past the page: the driver emits a spare step so "more" is certain.
-      if (events.length <= MAX_TRACE_EVENTS) events.push(event);
+      if (events.length < MAX_TRACE_EVENTS) events.push(event);
     } catch {
       // A partially flushed line is not worth failing the whole run over.
     }
   }
 
-  const truncated = events.length > MAX_TRACE_EVENTS;
-  if (truncated) events.length = MAX_TRACE_EVENTS;
-
-  return { events, truncated, remainder: kept.join('\n') };
+  return {
+    events,
+    truncated: events.length >= MAX_TRACE_EVENTS,
+    remainder: kept.join('\n'),
+  };
 }
 
 export function splitDriverOutput(raw: string): {
@@ -139,7 +139,7 @@ export interface EvaluationResult {
   ok: boolean;
   allPassed: boolean;
   compileError: string | null;
-  /** Line in the student's code behind a compile error or a visible-case crash. */
+  /** 1-based line in the student's code that the compile/runtime error points at. */
   errorLine: number | null;
   results: TestOutcome[];
   passedCount: number;
@@ -229,13 +229,13 @@ export class ExecutionService implements OnModuleInit {
     code: string,
     lang: LangKey,
     stdin?: string,
-  ): Promise<RunOutcome & { errorLine: number | null }> {
+  ): Promise<RunOutcome & { errorLine?: number | null }> {
     const problem = await this.prisma.problem.findUnique({
       where: { id: problemId },
       include: { testCases: { where: { isHidden: false }, orderBy: { order: 'asc' }, take: 1 } },
     });
     if (!problem) throw new NotFoundException(`Problem ${problemId} not found`);
-    if (problem.type !== 'PROGRAMMING') return { ...(await this.run(lang, code, stdin ?? '')), errorLine: null };
+    if (problem.type !== 'PROGRAMMING') return this.run(lang, code, stdin ?? '');
 
     let spec: HarnessSpec;
     try {
@@ -250,16 +250,20 @@ export class ExecutionService implements OnModuleInit {
 
     const input = stdin?.trim() ? stdin : (problem.testCases[0]?.input ?? '');
     const program = buildProgram(lang, code, spec, input);
+    const offset = userCodeLineOffset(program, lang, code);
+    const codeLines = code.split('\n').length;
     const out = await this.executor.execute(lang, program, '', { timeoutMs: this.timeoutMs });
     const { actual, studentOutput, found } = splitDriverOutput(out.stdout);
     const stdout = [studentOutput, found ? `=> ${actual}` : ''].filter(Boolean).join('\n');
-    const errorLine = locateErrorLine(
-      lang,
-      out.compileError ?? out.stderr,
-      codeOffset(lang, program, code),
-      code,
-    );
-    return { ...out, stdout, errorLine };
+    const compile = out.compileError ? remapErrorLines(out.compileError, offset, codeLines) : null;
+    const err = out.stderr ? remapErrorLines(out.stderr, offset, codeLines) : null;
+    return {
+      ...out,
+      stdout,
+      compileError: compile ? compile.text : out.compileError,
+      stderr: err ? err.text : out.stderr,
+      errorLine: compile?.line ?? err?.line ?? null,
+    };
   }
 
   // ── evaluation against a problem's test cases ──────────────────────
@@ -299,17 +303,19 @@ export class ExecutionService implements OnModuleInit {
     }
 
     const program = buildProgram(lang, code, spec);
-    const offset = codeOffset(lang, program, code);
+    const offset = userCodeLineOffset(program, lang, code);
+    const codeLines = code.split('\n').length;
     const prepared = await this.executor.prepare(lang, program, { timeoutMs: this.timeoutMs });
     const startedAt = Date.now();
 
     try {
       if (prepared.compileError) {
+        const mapped = remapErrorLines(prepared.compileError, offset, codeLines);
         return {
           ok: false,
           allPassed: false,
-          compileError: prepared.compileError,
-          errorLine: locateErrorLine(lang, prepared.compileError, offset, code),
+          compileError: mapped.text,
+          errorLine: mapped.line,
           results: [],
           passedCount: 0,
           totalCount: problem.testCases.length,
@@ -318,6 +324,7 @@ export class ExecutionService implements OnModuleInit {
       }
 
       const results: TestOutcome[] = [];
+      let errorLine: number | null = null;
       for (const [index, testCase] of problem.testCases.entries()) {
         const run = await prepared.run(testCase.input, { timeoutMs: this.timeoutMs });
         const { actual, studentOutput, found } = splitDriverOutput(run.stdout);
@@ -344,21 +351,24 @@ export class ExecutionService implements OnModuleInit {
                 : !found
                   ? 'NO_OUTPUT'
                   : 'WA',
-          stderr: run.stderr.trim() || null,
+          stderr: run.stderr.trim()
+            ? remapErrorLines(run.stderr.trim(), offset, codeLines).text
+            : null,
           exitCode: run.exitCode,
           timedOut: run.timedOut,
           executionMs: run.executionMs,
         });
+        if (errorLine === null && !testCase.isHidden && run.stderr.trim()) {
+          errorLine = remapErrorLines(run.stderr, offset, codeLines).line;
+        }
       }
 
       const passedCount = results.filter((r) => r.passed).length;
-      // Hidden cases never contribute: even a line number says something about them.
-      const crashed = results.find((r) => !r.isHidden && r.exitCode !== 0 && r.stderr);
       return {
         ok: true,
         allPassed: passedCount === results.length,
         compileError: null,
-        errorLine: crashed ? locateErrorLine(lang, crashed.stderr, offset, code) : null,
+        errorLine,
         results,
         passedCount,
         totalCount: results.length,
@@ -391,9 +401,7 @@ export class ExecutionService implements OnModuleInit {
     code: string,
     lang: LangKey,
     testCaseIndex = 0,
-    offset = 0,
   ): Promise<TraceResult> {
-    offset = Math.min(Math.max(Math.floor(offset) || 0, 0), MAX_TRACE_OFFSET);
     const problem = await this.prisma.problem.findUnique({
       where: { id: problemId },
       include: { testCases: { orderBy: { order: 'asc' } } },
@@ -424,9 +432,8 @@ export class ExecutionService implements OnModuleInit {
     // not compile (unusual syntax the instrumenter mishandled) fall back to the
     // plain driver, which also yields the student's own, accurate compile error.
     let instrumented = false;
-    let plainProgram: string | null = null;
     let prepared = null as Awaited<ReturnType<Executor['prepare']>> | null;
-    const inst = instrumentedDriver(lang, code, spec, testCase.input, offset);
+    const inst = instrumentedDriver(lang, code, spec, testCase.input);
     if (inst) {
       const attempt = await this.executor.prepare(lang, inst, { timeoutMs: this.timeoutMs });
       if (attempt.compileError) await attempt.dispose();
@@ -435,27 +442,25 @@ export class ExecutionService implements OnModuleInit {
         instrumented = true;
       }
     }
+    let offset = 0;
     if (!prepared) {
-      plainProgram = generateTracedDriver(lang, code, spec, testCase.input, offset);
-      prepared = await this.executor.prepare(lang, plainProgram, { timeoutMs: this.timeoutMs });
+      const program = generateTracedDriver(lang, code, spec, testCase.input);
+      offset = userCodeLineOffset(program, lang, code);
+      prepared = await this.executor.prepare(lang, program, { timeoutMs: this.timeoutMs });
     }
+    const codeLines = code.split('\n').length;
 
     try {
       if (prepared.compileError) {
         return {
           ok: false,
           truncated: false,
-          offset,
-          nextOffset: null,
           events: [],
           stdout: '',
           stderr: '',
           exitCode: null,
           timedOut: false,
-          compileError: prepared.compileError,
-          errorLine: plainProgram
-            ? locateErrorLine(lang, prepared.compileError, codeOffset(lang, plainProgram, code), code)
-            : null,
+          compileError: remapErrorLines(prepared.compileError, offset, codeLines).text,
           executionMs: 0,
           fidelity: traceFidelity(lang, instrumented),
         };
@@ -467,24 +472,39 @@ export class ExecutionService implements OnModuleInit {
         maxOutputBytes: 12 * 1024 * 1024,
       });
 
-      const { events, truncated, remainder } = extractTraceEvents(run.stdout);
+      let finalRun = run;
+      // JavaScript has no compile step, so a mis-instrumented build only shows
+      // up as a syntax/reference error at run time. Retry with the plain driver.
+      if (
+        lang === 'javascript' &&
+        instrumented &&
+        run.exitCode !== 0 &&
+        !run.timedOut &&
+        /SyntaxError|ReferenceError/.test(run.stderr)
+      ) {
+        await prepared.dispose();
+        instrumented = false;
+        const plain = generateTracedDriver(lang, code, spec, testCase.input);
+        prepared = await this.executor.prepare(lang, plain, { timeoutMs: this.timeoutMs });
+        finalRun = await prepared.run('', {
+          timeoutMs: this.timeoutMs,
+          maxOutputBytes: 12 * 1024 * 1024,
+        });
+      }
+
+      const { events, truncated, remainder } = extractTraceEvents(finalRun.stdout);
       const { studentOutput } = splitDriverOutput(remainder);
 
       return {
-        ok: !run.timedOut && run.exitCode === 0,
+        ok: !finalRun.timedOut && finalRun.exitCode === 0,
         truncated,
-        offset,
-        nextOffset: truncated ? offset + events.length : null,
         events,
         stdout: studentOutput,
-        stderr: run.stderr.trim(),
-        exitCode: run.exitCode,
-        timedOut: run.timedOut,
+        stderr: finalRun.stderr.trim(),
+        exitCode: finalRun.exitCode,
+        timedOut: finalRun.timedOut,
         compileError: null,
-        errorLine: plainProgram
-          ? locateErrorLine(lang, run.stderr, codeOffset(lang, plainProgram, code), code)
-          : null,
-        executionMs: run.executionMs,
+        executionMs: finalRun.executionMs,
         fidelity: traceFidelity(lang, instrumented),
       };
     } finally {

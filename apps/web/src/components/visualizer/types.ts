@@ -8,29 +8,21 @@ export interface TraceEvent {
   vars: Record<string, unknown>;
   highlights: number[];
   description: string;
-  /** 1-based line of the student's code that produced this step, when known. */
+  /** 1-based line in the student's code (Python, C++ and Java). */
   line?: number;
-  /** Function this step ran in, and how deep the call stack was (1 = outermost). */
   fn?: string;
   depth?: number;
 }
 
 export interface TraceResult {
   ok: boolean;
-  /** More steps exist beyond this page. */
   truncated: boolean;
-  /** Steps skipped before the first event here. */
-  offset: number;
-  /** Where the next page starts, or null when the run is fully covered. */
-  nextOffset: number | null;
   events: TraceEvent[];
   stdout: string;
   stderr: string;
   exitCode: number | null;
   timedOut: boolean;
   compileError: string | null;
-  /** Line in the student's code behind the compile error or crash, when known. */
-  errorLine?: number | null;
   executionMs: number;
   fidelity: 'full' | 'partial' | 'manual';
 }
@@ -62,17 +54,6 @@ export interface RendererProps {
   problem: Problem;
   /** Drives the flash on values that changed since the previous step. */
   previous: TraceEvent | null;
-  /** The call stack at this step, outermost first. Empty when the language does not report one. */
-  frames?: Frame[];
-}
-
-/** One live call on the stack: its function, the line it is paused on, and its locals. */
-export interface Frame {
-  fn: string;
-  depth: number;
-  line?: number;
-  vars: Record<string, unknown>;
-  step: number;
 }
 
 export interface TraceRequest {
@@ -80,5 +61,4 @@ export interface TraceRequest {
   code: string;
   lang: LangKey;
   testCaseIndex?: number;
-  offset?: number;
 }

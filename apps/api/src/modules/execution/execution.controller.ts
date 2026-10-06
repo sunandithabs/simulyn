@@ -30,7 +30,7 @@ export class ExecutionController {
   async run(@Body() dto: RunCodeDto) {
     const result = dto.problemId
       ? await this.execution.runForProblem(dto.problemId, dto.code, dto.lang, dto.stdin)
-      : { ...(await this.execution.run(dto.lang, dto.code, dto.stdin ?? '')), errorLine: null };
+      : await this.execution.run(dto.lang, dto.code, dto.stdin ?? '');
     return {
       ok: result.compileError === null && !result.timedOut && result.exitCode === 0,
       stdout: result.stdout,
@@ -38,7 +38,7 @@ export class ExecutionController {
       exitCode: result.exitCode,
       timedOut: result.timedOut,
       compileError: result.compileError,
-      errorLine: result.errorLine,
+      errorLine: 'errorLine' in result ? result.errorLine : null,
       executionMs: result.executionMs,
     };
   }
@@ -66,13 +66,7 @@ export class ExecutionController {
       'Returns the trace the visualiser replays. Python is traced line by line; JavaScript reports array reads and writes; C++ and Java report only what the solution emits itself.',
   })
   trace(@Body() dto: TraceCodeDto) {
-    return this.execution.runWithTrace(
-      dto.problemId,
-      dto.code,
-      dto.lang,
-      dto.testCaseIndex ?? 0,
-      dto.offset ?? 0,
-    );
+    return this.execution.runWithTrace(dto.problemId, dto.code, dto.lang, dto.testCaseIndex ?? 0);
   }
 
   @Get('health')

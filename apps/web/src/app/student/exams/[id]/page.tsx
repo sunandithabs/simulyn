@@ -9,6 +9,7 @@ import {
   Maximize,
   Play,
   Send,
+  AlignLeft,
   ShieldAlert,
   Wifi,
   WifiOff,
@@ -20,7 +21,7 @@ import { toast } from 'sonner';
 
 import { CodeEditor } from '@/components/problem/code-editor';
 import { ProblemBrief } from '@/components/problem/problem-brief';
-import { ConsoleOutput, TestResults } from '@/components/problem/results-panel';
+import { CustomRunPanel, TestResults } from '@/components/problem/results-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/input';
@@ -60,15 +61,18 @@ export default function StudentExamPage() {
   const router = useRouter();
 
   const [exam, setExam] = useState<ExamDetail | null>(null);
-  /** Server clock minus this browser's clock, in ms, so both agree on "now". */
-  const [skew, setSkew] = useState(0);
-  const [clock, setClock] = useState(() => Date.now());
   const [attempt, setAttempt] = useState<ExamStartResponse | null>(null);
   const [starting, setStarting] = useState(false);
 
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [bottom, setBottom] = useState<'tests' | 'console'>('tests');
+  const [evalMode, setEvalMode] = useState<'run' | 'submit'>('run');
+  const [errorLine, setErrorLine] = useState<number | null>(null);
+  const [errorText, setErrorText] = useState('');
+  const [customInput, setCustomInput] = useState('');
+  const [customRunning, setCustomRunning] = useState(false);
+  const editorApi = useRef<{ format: () => void } | null>(null);
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -90,47 +94,24 @@ export default function StudentExamPage() {
 
   const questions = attempt?.questions ?? [];
   const current = questions[index];
+
+  // A new question starts with its own sample input and no stale error marker.
+  useEffect(() => {
+    setCustomInput(current?.problem.testCases?.find((c) => !c.isHidden)?.input ?? '');
+    setErrorLine(null);
+  }, [current?.problem.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const answer = current ? answers[current.problem.id] : undefined;
 
   // ── loading ───────────────────────────────────────────────────────
-  const loadExam = useCallback(
-    () =>
-      api.get<ExamDetail>(`/exams/${examId}`).then((fresh) => {
-        if (fresh.serverTime) setSkew(new Date(fresh.serverTime).getTime() - Date.now());
-        setExam(fresh);
-      }),
-    [examId],
-  );
-
   useEffect(() => {
-    void loadExam().catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'That exam could not be loaded');
-      router.push('/student/exams');
-    });
-  }, [loadExam, router]);
-
-  // The status the server sent is a snapshot. Tick a clock so "Opens at …" turns
-  // into a Start button on its own, and refetch when the student returns to the tab.
-  useEffect(() => {
-    const timer = setInterval(() => setClock(Date.now()), 1000);
-    const refresh = () => {
-      if (document.visibilityState === 'visible') void loadExam().catch(() => undefined);
-    };
-    document.addEventListener('visibilitychange', refresh);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [loadExam]);
-
-  const liveStatus = useMemo(() => {
-    if (!exam) return null;
-    if (exam.status === 'DRAFT') return 'DRAFT' as const;
-    const now = clock + skew;
-    if (now < new Date(exam.scheduledStart).getTime()) return 'SCHEDULED' as const;
-    if (now > new Date(exam.scheduledEnd).getTime()) return 'COMPLETED' as const;
-    return 'ACTIVE' as const;
-  }, [exam, clock, skew]);
+    void api
+      .get<ExamDetail>(`/exams/${examId}`)
+      .then(setExam)
+      .catch(() => {
+        toast.error('That exam could not be loaded');
+        router.push('/student/exams');
+      });
+  }, [examId, router]);
 
   /**
    * Fullscreen is requested, not required: some browsers refuse a programmatic
@@ -297,16 +278,18 @@ export default function StudentExamPage() {
   async function run() {
     if (!current || !answer) return;
     setRunning(true);
+    setEvalMode('run');
     setBottom('tests');
     try {
-      setEvaluation(
-        await api.post<EvaluationResult>('/execute/submit', {
-          problemId: current.problem.id,
-          code: answer.code,
-          lang: answer.language,
-          visibleOnly: true,
-        }),
-      );
+      const result = await api.post<EvaluationResult>('/execute/submit', {
+        problemId: current.problem.id,
+        code: answer.code,
+        lang: answer.language,
+        visibleOnly: true,
+      });
+      setEvaluation(result);
+      setErrorLine(result.errorLine ?? null);
+      setErrorText(result.compileError ?? result.results.find((r) => r.stderr)?.stderr ?? '');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not run your code');
     } finally {
@@ -314,9 +297,30 @@ export default function StudentExamPage() {
     }
   }
 
+  async function runCustom() {
+    if (!current || !answer) return;
+    setCustomRunning(true);
+    try {
+      const result = await api.post<RunResult>('/execute/run', {
+        code: answer.code,
+        lang: answer.language,
+        problemId: current.problem.id,
+        stdin: customInput,
+      });
+      setRunResult(result);
+      setErrorLine(result.errorLine ?? null);
+      setErrorText(result.compileError ?? result.stderr ?? '');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not run your input');
+    } finally {
+      setCustomRunning(false);
+    }
+  }
+
   async function submitAnswer() {
     if (!current || !answer || !attempt) return;
     setSubmittingAnswer(true);
+    setEvalMode('submit');
     setBottom('tests');
     try {
       const result = await api.post<Submission>('/submissions', {
@@ -330,11 +334,14 @@ export default function StudentExamPage() {
         ok: true,
         allPassed: result.passed,
         compileError: result.compileError,
+        errorLine: result.errorLine ?? null,
         results: result.testResults.map((row, i) => ({ ...row, index: i })),
         passedCount: result.passedCount,
         totalCount: result.totalCount,
         totalMs: result.executionMs ?? 0,
       });
+      setErrorLine(result.errorLine ?? null);
+      setErrorText(result.compileError ?? '');
       patchAnswer(current.problem.id, { submitted: true, passed: result.passed });
 
       if (result.passed) toast.success(`Accepted. We are so back. ${result.score} points`);
@@ -426,7 +433,7 @@ export default function StudentExamPage() {
                 You submitted this exam · {exam.attempt.totalScore} points · integrity{' '}
                 {exam.attempt.integrityScore}
               </div>
-            ) : liveStatus === 'ACTIVE' ? (
+            ) : exam.status === 'ACTIVE' ? (
               <Button
                 size="lg"
                 className="mt-5 w-full"
@@ -441,7 +448,7 @@ export default function StudentExamPage() {
               </Button>
             ) : (
               <div className="mt-5 rounded-lg border border-line px-4 py-3 text-center text-[13px] text-muted">
-                {liveStatus === 'SCHEDULED'
+                {exam.status === 'SCHEDULED'
                   ? `Opens ${formatDateTime(exam.scheduledStart)}`
                   : 'This exam has closed'}
               </div>
@@ -616,7 +623,7 @@ export default function StudentExamPage() {
         </section>
 
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+          <div className="flex items-center gap-3 border-b border-line px-4 py-3">
             <Select
               value={answer?.language ?? 'python'}
               aria-label="Language"
@@ -640,16 +647,39 @@ export default function StudentExamPage() {
               ))}
             </Select>
 
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Format code"
+              aria-label="Format code"
+              onClick={() => editorApi.current?.format()}
+            >
+              <AlignLeft className="h-3.5 w-3.5" />
+              Format
+            </Button>
+
             <span className="font-mono text-[11px] text-brass-lit tabular">
               {current?.points} pts
             </span>
 
             <div className="ml-auto flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => void run()} loading={running}>
+              <Button
+                variant="outline"
+                size="sm"
+                title="Run the sample cases. Not scored."
+                onClick={() => void run()}
+                loading={running}
+                disabled={submittingAnswer}
+              >
                 <Play className="h-3.5 w-3.5" />
                 Run
               </Button>
-              <Button size="sm" onClick={() => void submitAnswer()} loading={submittingAnswer}>
+              <Button
+                size="sm"
+                onClick={() => void submitAnswer()}
+                loading={submittingAnswer}
+                disabled={running}
+              >
                 <Send className="h-3.5 w-3.5" />
                 Submit answer
               </Button>
@@ -661,7 +691,15 @@ export default function StudentExamPage() {
               <CodeEditor
                 language={answer?.language ?? 'python'}
                 value={answer?.code ?? ''}
-                onChange={(value) => patchAnswer(current.problem.id, { code: value })}
+                onChange={(value) => {
+                  patchAnswer(current.problem.id, { code: value });
+                  setErrorLine(null);
+                }}
+                errorLine={errorLine}
+                errorMessage={errorText.split('\n').find((l) => l.trim()) ?? undefined}
+                onReady={(api) => {
+                  editorApi.current = api;
+                }}
                 onRun={() => void run()}
                 onSubmit={() => void submitAnswer()}
               />
@@ -673,7 +711,7 @@ export default function StudentExamPage() {
               {(
                 [
                   { value: 'tests', label: 'Test results' },
-                  { value: 'console', label: 'Console' },
+                  { value: 'console', label: 'Custom input' },
                 ] as const
               ).map((entry) => (
                 <button
@@ -726,12 +764,16 @@ export default function StudentExamPage() {
                 <TestResults
                   evaluation={evaluation}
                   running={submittingAnswer || running}
+                  mode={evalMode}
                   cases={current?.problem.testCases?.filter((c) => !c.isHidden)}
                 />
               ) : (
-                <ConsoleOutput
+                <CustomRunPanel
+                  input={customInput}
+                  onInput={setCustomInput}
+                  onRun={() => void runCustom()}
                   result={runResult}
-                  running={running}
+                  running={customRunning}
                   language={answer?.language ?? 'python'}
                 />
               )}

@@ -424,14 +424,11 @@ export function detectJavaMainClass(source: string): string | null {
  */
 export function normaliseJavaSource(
   source: string,
-  keepLines = false,
+  _preserveLines = true,
 ): { imports: string[]; body: string } {
   const imports: string[] = [];
-  // keepLines blanks an import without eating its newlines, so a line number in
-  // the result is still the line the student wrote — traces depend on that.
-  const importLine = keepLines ? /^[ \t]*import\s+[^;\n]+;[ \t]*$/gm : /^\s*import\s+[^;]+;\s*$/gm;
   const body = source
-    .replace(importLine, (line) => {
+    .replace(/^[ \t]*import\s+[^;\n]+;[ \t]*$/gm, (line) => {
       imports.push(line.trim());
       return '';
     })
