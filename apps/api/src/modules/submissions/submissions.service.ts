@@ -34,6 +34,7 @@ export interface SubmissionResponse {
   maxScore: number;
   attemptNumber: number;
   compileError: string | null;
+  errorLine?: number | null;
   executionMs: number | null;
   createdAt: Date;
   passedCount: number;
@@ -193,6 +194,7 @@ export class SubmissionsService {
       })),
       reward,
       requester.role === Role.STUDENT,
+      { errorLine: evaluation.errorLine },
     );
   }
 

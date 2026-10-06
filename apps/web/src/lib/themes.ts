@@ -4,10 +4,29 @@
 export interface ThemePreset {
   id: string;
   label: string;
+  /** Inline overrides. Themes defined in globals.css leave this empty. */
   vars: Record<string, string>;
+  /** Swatch shown in the switcher. */
+  swatch?: [string, string];
+  /** Black-background themes: the code editor follows. */
+  midnight?: boolean;
 }
 
 export const THEMES: ThemePreset[] = [
+  {
+    id: 'midnight',
+    label: 'Midnight · white text',
+    vars: {},
+    swatch: ['#000000', '#a78bfa'],
+    midnight: true,
+  },
+  {
+    id: 'midnight-violet',
+    label: 'Midnight · purple text',
+    vars: {},
+    swatch: ['#000000', '#c4b5fd'],
+    midnight: true,
+  },
   {
     id: 'instrument',
     label: 'Instrument (default)',
@@ -59,11 +78,19 @@ export const THEMES: ThemePreset[] = [
 ];
 
 export const THEME_STORAGE_KEY = 'simulyn.theme';
-export const DEFAULT_THEME_ID = THEMES[0].id;
+export const DEFAULT_THEME_ID = 'instrument';
+
+export function isMidnight(themeId: string): boolean {
+  return THEMES.find((t) => t.id === themeId)?.midnight === true;
+}
 
 export function applyTheme(themeId: string) {
-  const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
+  const theme = THEMES.find((t) => t.id === themeId) ?? THEMES.find((t) => t.id === DEFAULT_THEME_ID)!;
   const root = document.documentElement;
+  // Clear whatever the previous preset set inline, so nothing leaks between themes.
+  for (const preset of THEMES) {
+    for (const key of Object.keys(preset.vars)) root.style.removeProperty(key);
+  }
   for (const [key, value] of Object.entries(theme.vars)) {
     root.style.setProperty(key, value);
   }

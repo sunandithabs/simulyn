@@ -25,7 +25,7 @@ export function ThemeSwitcher() {
       {open ? (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="glass absolute right-0 z-50 mt-2 w-52 p-2">
+          <div className="glass absolute right-0 z-50 mt-2 w-60 bg-ink-raised p-2">
             <div className="instrument px-2 py-1.5">Theme</div>
             {THEMES.map((theme) => (
               <button
@@ -42,7 +42,10 @@ export function ThemeSwitcher() {
                 <span
                   className="h-3.5 w-3.5 shrink-0 rounded-full"
                   style={{
-                    background: `linear-gradient(135deg, ${theme.vars['--color-violet-lit']}, ${theme.vars['--color-brass-lit']})`,
+                    background: theme.swatch
+                      ? `linear-gradient(135deg, ${theme.swatch[0]} 45%, ${theme.swatch[1]} 45%)`
+                      : `linear-gradient(135deg, ${theme.vars['--color-violet-lit']}, ${theme.vars['--color-brass-lit']})`,
+                    boxShadow: 'inset 0 0 0 1px #ffffff33',
                   }}
                 />
                 {theme.label}

@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { ThemeSwitcher } from '@/components/brand/theme-switcher';
 import { useLockdown } from '@/components/layout/lockdown';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -245,6 +246,7 @@ export function AppShell({
                 <div className="text-[13px] font-medium text-paper">{user?.displayName}</div>
                 <div className="font-mono text-[10px] text-faint">@{user?.username}</div>
               </div>
+              <ThemeSwitcher />
               <Avatar name={user?.displayName ?? '?'} avatar={user?.avatar} size="sm" />
               <Button
                 variant="ghost"

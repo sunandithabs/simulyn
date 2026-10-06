@@ -11,7 +11,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -89,17 +88,6 @@ export class TraceCodeDto {
   @Min(0)
   @IsOptional()
   testCaseIndex?: number;
-
-  @ApiPropertyOptional({
-    default: 0,
-    description: 'Number of steps to skip, for paging through a long run.',
-  })
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(100_000)
-  @IsOptional()
-  offset?: number;
 }
 
 export class ElectronicsAnswerDto {

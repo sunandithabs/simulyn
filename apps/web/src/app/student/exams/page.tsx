@@ -23,17 +23,12 @@ const TONE = {
 export default function StudentExamsPage() {
   const [exams, setExams] = useState<ExamSummary[] | null>(null);
   const [, setTick] = useState(0);
-  /** When this browser received the list; paired with the server's clock to correct for skew. */
-  const [loadedAt, setLoadedAt] = useState(() => Date.now());
 
   useEffect(() => {
     const load = () =>
       void api
         .get<ExamSummary[]>('/exams')
-        .then((list) => {
-          setLoadedAt(Date.now());
-          setExams(list);
-        })
+        .then(setExams)
         .catch(() => setExams((previous) => previous ?? []));
     load();
     // Teachers publish/open exams at any time; refresh without a reload.
@@ -65,11 +60,11 @@ export default function StudentExamsPage() {
           </p>
         </header>
 
-        <div className="mt-6 space-y-2.5">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {!exams ? (
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)
           ) : exams.length === 0 ? (
-            <Panel>
+            <Panel className="sm:col-span-2 lg:col-span-3">
               <Empty
                 icon={CalendarClock}
                 title="No exams scheduled"
@@ -80,31 +75,28 @@ export default function StudentExamsPage() {
             exams.map((exam) => {
               const start = new Date(exam.scheduledStart).getTime();
               const end = new Date(exam.scheduledEnd).getTime();
-              // The server's clock, not this browser's, decides when an exam is open.
-              const nowMs = Date.now() + (exam.serverTime ? new Date(exam.serverTime).getTime() - loadedAt : 0);
-              const untilStart = (start - nowMs) / 1000;
+              const untilStart = (start - Date.now()) / 1000;
               // Recomputed every tick so the badge never lags the server clock.
               if (exam.status !== 'DRAFT') {
-                const now = nowMs;
+                const now = Date.now();
                 exam = { ...exam, status: now < start ? 'SCHEDULED' : now > end ? 'COMPLETED' : 'ACTIVE' };
               }
 
               return (
                 <Link key={exam.id} href={`/student/exams/${exam.id}`} className="block">
-                  <Panel hover className="exam-card p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <Panel className="exam-card flex h-full flex-col gap-4 p-5">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-[15px] font-medium text-paper">{exam.title}</h2>
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={TONE[exam.status]}>{exam.status}</Badge>
                         {exam.attempt?.submittedAt ? <Badge tone="pass">submitted</Badge> : null}
                       </div>
+                      <h2 className="mt-3 text-[15px] font-medium text-paper">{exam.title}</h2>
                       <div className="mt-1.5 font-mono text-[11px] text-faint">
                         {exam.class.name} · {exam._count.problems} problems · {exam.durationMin} min
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="mt-auto border-t border-line pt-3">
                       <div className="font-mono text-[11px] text-muted">
                         {formatDateTime(exam.scheduledStart)}
                       </div>
@@ -115,20 +107,15 @@ export default function StudentExamsPage() {
                       ) : null}
                       {exam.status === 'ACTIVE' && exam.attempt && !exam.attempt.submittedAt ? (
                         <div className="mt-0.5 font-mono text-[11px] text-warn tabular">
-                          {formatClock(
-                            (new Date(exam.attempt.endsAt).getTime() - Date.now()) / 1000,
-                          )}{' '}
-                          left
+                          {formatClock((new Date(exam.attempt.endsAt).getTime() - Date.now()) / 1000)} left
                         </div>
                       ) : null}
                       {exam.attempt?.submittedAt ? (
                         <div className="mt-0.5 font-mono text-[11px] text-muted tabular">
-                          scored {exam.attempt.totalScore} · integrity{' '}
-                          {exam.attempt.integrityScore}
+                          scored {exam.attempt.totalScore} · integrity {exam.attempt.integrityScore}
                         </div>
                       ) : null}
                     </div>
-                  </div>
                   </Panel>
                 </Link>
               );

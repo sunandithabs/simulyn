@@ -1,13 +1,7 @@
 import type { LangKey } from './executor';
 import { normaliseJavaSource } from './executor';
-import { CPP_STEP_SUPPORT, instrumentSource, JAVA_STEP_SUPPORT } from './instrument';
+import { CPP_STEP_SUPPORT, instrumentSource, JAVA_STEP_SUPPORT, JS_STEP_SUPPORT } from './instrument';
 import { MAX_TRACE_EVENTS, TRACE_MARKER } from './trace.types';
-
-/** Each page asks the driver for one spare step, so the server knows whether more exist. */
-const TRACE_PAGE = MAX_TRACE_EVENTS + 1;
-
-/** Newlines in the text that precedes the student's code — what to subtract from a raw line number. */
-const linesBefore = (head: string): number => head.split('\n').length - 1;
 
 /**
  * Builds a complete, compilable program around a student's function.
@@ -840,7 +834,7 @@ function javaArg(type: HarnessType, index: number): { decl: string; expr: string
 
 function buildJava(userCode: string, spec: HarnessSpec, testInput?: string): string {
   const fn = funcNameFor(spec, 'java');
-  const { imports, body } = normaliseJavaSource(userCode, true);
+  const { imports, body } = normaliseJavaSource(userCode);
 
   const decls = spec.params
     .map((p, i) => {
@@ -903,10 +897,10 @@ const PY_TRACE_SUPPORT = `
 import linecache
 
 _SIMULYN_MARKER = ${literal(TRACE_MARKER)}
-_SIMULYN_PAGE = ${TRACE_PAGE}
+_SIMULYN_MAX = ${MAX_TRACE_EVENTS}
 _simulyn_step = [0]
-_simulyn_depth = [0]
 _simulyn_truncated = [False]
+_simulyn_off = [0]
 
 # Names that conventionally hold an index, used to light up array cells.
 _SIMULYN_POINTERS = ('i', 'j', 'k', 'l', 'r', 'lo', 'hi', 'mid', 'left', 'right',
@@ -967,7 +961,20 @@ def _simulyn_highlights(local_vars):
             found.append(value)
     return sorted(set(found))
 
-def _simulyn_emit(op, local_vars, highlights, description, line, fn, depth):
+def _simulyn_depth(frame):
+    d = 0
+    while frame is not None:
+        n = frame.f_code.co_name
+        if not (n.startswith('_simulyn') or n.startswith('__') or n == '<module>'):
+            d += 1
+        frame = frame.f_back
+    return d
+
+def _simulyn_emit(op, local_vars, highlights, description, line=0, fn='', depth=1):
+    if _simulyn_step[0] >= _SIMULYN_MAX:
+        _simulyn_truncated[0] = True
+        return
+    _simulyn_step[0] += 1
     payload = {
         'step': _simulyn_step[0],
         'op': op,
@@ -981,30 +988,18 @@ def _simulyn_emit(op, local_vars, highlights, description, line, fn, depth):
     sys.stdout.write(_SIMULYN_MARKER + json.dumps(payload, default=str) + '\\n')
 
 def _simulyn_tracer(frame, event, arg):
+    if _simulyn_step[0] >= _SIMULYN_MAX:
+        _simulyn_truncated[0] = True
+        return None
+
     name = frame.f_code.co_name
     # Everything the driver defines is prefixed, so this leaves student code.
     if name.startswith('_simulyn') or name.startswith('__') or name == '<module>':
         return None
 
     if event == 'call':
-        if _simulyn_step[0] >= _SIMULYN_SKIP + _SIMULYN_PAGE:
-            _simulyn_truncated[0] = True
-            return None
-        _simulyn_depth[0] += 1
         return _simulyn_tracer
     if event not in ('line', 'return'):
-        return _simulyn_tracer
-
-    depth = _simulyn_depth[0]
-    if event == 'return':
-        _simulyn_depth[0] = max(depth - 1, 0)
-
-    if _simulyn_step[0] >= _SIMULYN_SKIP + _SIMULYN_PAGE:
-        _simulyn_truncated[0] = True
-        return None
-    _simulyn_step[0] += 1
-    # Steps before this page are counted but not described: cheap to skip.
-    if _simulyn_step[0] <= _SIMULYN_SKIP:
         return _simulyn_tracer
 
     snapshot = {}
@@ -1013,31 +1008,30 @@ def _simulyn_tracer(frame, event, arg):
             continue
         snapshot[key] = _simulyn_safe(value)
 
-    line = frame.f_lineno - _SIMULYN_LINE_OFFSET
     if event == 'return':
-        _simulyn_emit('return', snapshot, [], name + ' returned ' + repr(_simulyn_safe(arg))[:80], line, name, depth)
+        _simulyn_emit('return', snapshot, [], name + ' returned ' + repr(_simulyn_safe(arg))[:80], frame.f_lineno - _simulyn_off[0], name, _simulyn_depth(frame))
         return _simulyn_tracer
 
     source = linecache.getline(frame.f_code.co_filename, frame.f_lineno).strip()
     if source:
-        _simulyn_emit(_simulyn_classify(source), snapshot, _simulyn_highlights(frame.f_locals), source, line, name, depth)
-    else:
-        _simulyn_step[0] -= 1
+        _simulyn_emit(_simulyn_classify(source), snapshot, _simulyn_highlights(frame.f_locals), source, frame.f_lineno - _simulyn_off[0], name, _simulyn_depth(frame))
 
     return _simulyn_tracer
 `;
 
-function buildTracedPython(userCode: string, spec: HarnessSpec, testInput: string, offset = 0): string {
+function buildTracedPython(userCode: string, spec: HarnessSpec, testInput: string): string {
   const fn = funcNameFor(spec, 'python');
   const args = spec.params.map((p, i) => pythonArg(p.type, i)).join(', ');
+
   const head = `${PY_PRELUDE}${PY_TRACE_SUPPORT}
 # ── student code ──
 `;
+  // Student line 1 is the line after the offset marker, so frame.f_lineno - offset is their line.
+  const offset = head.split('\n').length;
 
-  return `${head}${userCode}
+  return `${head}_simulyn_off[0] = ${offset}
+${userCode}
 # ── traced driver ──
-_SIMULYN_SKIP = ${offset}
-_SIMULYN_LINE_OFFSET = ${linesBefore(head)}
 
 def _simulyn_main():
     _raw = ${literal(testInput)}
@@ -1079,13 +1073,9 @@ _simulyn_main()
  * assign. That covers the array and string problems, which is where the
  * animation earns its keep.
  */
-function jsTraceSupport(skip: number, lineOffset: number, userLines: number): string {
-  return `
+const JS_TRACE_SUPPORT = `
 const _SIMULYN_MARKER = ${literal(TRACE_MARKER)};
-const _SIMULYN_PAGE = ${TRACE_PAGE};
-const _SIMULYN_SKIP = ${skip};
-const _SIMULYN_LINE_OFFSET = ${lineOffset};
-const _SIMULYN_USER_LINES = ${userLines};
+const _SIMULYN_MAX = ${MAX_TRACE_EVENTS};
 let _simulynStep = 0;
 let _simulynTruncated = false;
 
@@ -1107,26 +1097,12 @@ function _simulynSafe(value, depth = 0) {
   return String(value).slice(0, 120);
 }
 
-/** The student's line that triggered this step, read off the call stack. */
-function _simulynLine() {
-  try {
-    for (const frame of String(new Error().stack).split('\\n')) {
-      const m = /:(\\d+):\\d+\\)?\\s*$/.exec(frame);
-      if (!m) continue;
-      const n = Number(m[1]) - _SIMULYN_LINE_OFFSET;
-      if (n >= 1 && n <= _SIMULYN_USER_LINES) return n;
-    }
-  } catch (e) {}
-  return undefined;
-}
-
-function _simulynEmit(op, vars, highlights, description) {
-  if (_simulynStep >= _SIMULYN_SKIP + _SIMULYN_PAGE) { _simulynTruncated = true; return; }
+function _simulynEmit(op, vars, highlights, description, extra) {
+  if (_simulynStep >= _SIMULYN_MAX) { _simulynTruncated = true; return; }
   _simulynStep += 1;
-  if (_simulynStep <= _SIMULYN_SKIP) return;
   process.stdout.write(
     _SIMULYN_MARKER +
-      JSON.stringify({ step: _simulynStep, op, vars, highlights, description, line: _simulynLine() }) +
+      JSON.stringify(Object.assign({ step: _simulynStep, op, vars, highlights, description }, extra || {})) +
       '\\n',
   );
 }
@@ -1158,19 +1134,22 @@ function _simulynWatch(value, name) {
   });
 }
 `;
-}
 
-function buildTracedJavaScript(userCode: string, spec: HarnessSpec, testInput: string, offset = 0): string {
+function buildTracedJavaScript(
+  userCode: string,
+  spec: HarnessSpec,
+  testInput: string,
+  instrumented = false,
+): string {
   const fn = funcNameFor(spec, 'javascript');
+  // Instrumented runs report every line, so the array proxy would only add noise.
   const args = spec.params
-    .map((p, i) => `_simulynWatch(${jsArg(p.type, i)}, ${literal(p.name)})`)
+    .map((p, i) =>
+      instrumented ? jsArg(p.type, i) : `_simulynWatch(${jsArg(p.type, i)}, ${literal(p.name)})`,
+    )
     .join(', ');
 
-  // Digits never add a newline, so the offset can be measured with a placeholder.
-  const lineOffset = linesBefore(`${JS_PRELUDE}${jsTraceSupport(offset, 0, 0)}\n// ── student code ──\n`);
-  const support = jsTraceSupport(offset, lineOffset, userCode.split('\n').length);
-
-  return `${JS_PRELUDE}${support}
+  return `${JS_PRELUDE}${JS_TRACE_SUPPORT}${instrumented ? JS_STEP_SUPPORT : ''}
 // ── student code ──
 ${userCode}
 // ── traced driver ──
@@ -1212,19 +1191,11 @@ ${userCode}
 const CPP_TRACE_SUPPORT = `
 namespace simulyn {
 inline int _traceStep = 0;
-inline int TRACE_SKIP = 0;
-inline const int TRACE_MAX = ${TRACE_PAGE};
-inline vector<string> _fnStack;
-
-struct Frame {
-    Frame(const char *name) { _fnStack.push_back(name); }
-    ~Frame() { _fnStack.pop_back(); }
-};
+inline const int TRACE_MAX = ${MAX_TRACE_EVENTS};
 
 inline void traceEmit(const string &op, const string &description) {
-    if (_traceStep >= TRACE_SKIP + TRACE_MAX) return;
+    if (_traceStep >= TRACE_MAX) return;
     _traceStep++;
-    if (_traceStep <= TRACE_SKIP) return;
     cout << ${literal(TRACE_MARKER)}
          << "{\\"step\\":" << _traceStep
          << ",\\"op\\":\\"" << op
@@ -1237,13 +1208,7 @@ inline void traceEmit(const string &op, const string &description) {
 #define SIMULYN_TRACE(op, description) simulyn::traceEmit(op, description)
 `;
 
-function buildTracedCpp(
-  userCode: string,
-  spec: HarnessSpec,
-  testInput: string,
-  instrumented = false,
-  offset = 0,
-): string {
+function buildTracedCpp(userCode: string, spec: HarnessSpec, testInput: string, instrumented = false): string {
   const fn = funcNameFor(spec, 'cpp');
   const decls = spec.params.map((p, i) => `    auto _a${i} = ${cppArg(p.type, i)};`).join('\n');
   const args = spec.params.map((_, i) => `_a${i}`).join(', ');
@@ -1268,7 +1233,6 @@ int main() {
 
 ${decls}
     Solution _sol;
-    simulyn::TRACE_SKIP = ${offset};
     simulyn::traceEmit("visit", "calling ${fn}");
     auto _res = _sol.${fn}(${args});
     simulyn::traceEmit("return", "${fn} returned");
@@ -1280,30 +1244,21 @@ ${decls}
 
 const JAVA_TRACE_SUPPORT = `
     static int _traceStep = 0;
-    static int _traceSkip = 0;
-    static final int TRACE_MAX = ${TRACE_PAGE};
+    static final int TRACE_MAX = ${MAX_TRACE_EVENTS};
 
     /** Call from your solution to add a step to the visualisation. */
     static void trace(String op, String description) {
-        if (_traceStep >= _traceSkip + TRACE_MAX) return;
+        if (_traceStep >= TRACE_MAX) return;
         _traceStep++;
-        if (_traceStep <= _traceSkip) return;
         System.out.println(${literal(TRACE_MARKER)} + "{\\"step\\":" + _traceStep
             + ",\\"op\\":\\"" + op + "\\",\\"vars\\":{},\\"highlights\\":[],\\"description\\":\\""
             + esc(description) + "\\"}");
     }
 `;
 
-function buildTracedJava(
-  userCode: string,
-  spec: HarnessSpec,
-  testInput: string,
-  bodyOverride?: string,
-  offset = 0,
-): string {
+function buildTracedJava(userCode: string, spec: HarnessSpec, testInput: string, instrumented = false): string {
   const fn = funcNameFor(spec, 'java');
-  const { imports, body: plainBody } = normaliseJavaSource(userCode, true);
-  const body = bodyOverride ?? plainBody;
+  const { imports, body } = normaliseJavaSource(userCode);
 
   const decls = spec.params
     .map((p, i) => {
@@ -1318,7 +1273,7 @@ function buildTracedJava(
 ${extraImports}
 
 ${JAVA_PRELUDE}
-${bodyOverride !== undefined ? JAVA_STEP_SUPPORT : ''}
+${instrumented ? JAVA_STEP_SUPPORT : ''}
 // ── student code ──
 ${body}
 // ── traced driver ──
@@ -1335,7 +1290,6 @@ ${JAVA_TRACE_SUPPORT}
 
 ${decls}
         Solution _sol = new Solution();
-        _traceSkip = ${offset};
         trace("visit", "calling ${fn}");
         Object _res = _sol.${fn}(${args});
         trace("return", "${fn} returned");
@@ -1363,19 +1317,18 @@ export function generateTracedDriver(
   userCode: string,
   spec: HarnessSpec,
   testInput: string,
-  offset = 0,
 ): string {
   assertValidHarness(spec);
 
   switch (lang) {
     case 'python':
-      return buildTracedPython(userCode, spec, testInput, offset);
+      return buildTracedPython(userCode, spec, testInput);
     case 'javascript':
-      return buildTracedJavaScript(userCode, spec, testInput, offset);
+      return buildTracedJavaScript(userCode, spec, testInput);
     case 'cpp':
-      return buildTracedCpp(userCode, spec, testInput, false, offset);
+      return buildTracedCpp(userCode, spec, testInput);
     case 'java':
-      return buildTracedJava(userCode, spec, testInput, undefined, offset);
+      return buildTracedJava(userCode, spec, testInput);
   }
 }
 
@@ -1414,17 +1367,46 @@ export function instrumentedDriver(
   userCode: string,
   spec: HarnessSpec,
   testInput: string,
-  offset = 0,
 ): string | null {
-  if (lang !== 'cpp' && lang !== 'java') return null;
+  if (lang === 'python') return null;
   assertValidHarness(spec);
 
-  // keepLines: the instrumenter numbers steps by the student's own lines.
-  const source = lang === 'java' ? normaliseJavaSource(userCode, true).body : userCode;
-  const result = instrumentSource(source, lang);
+  const result = instrumentSource(userCode, lang === 'javascript' ? 'js' : lang);
   if (!result) return null;
 
-  return lang === 'cpp'
-    ? buildTracedCpp(result.code, spec, testInput, true, offset)
-    : buildTracedJava(userCode, spec, testInput, result.code, offset);
+  if (lang === 'cpp') return buildTracedCpp(result.code, spec, testInput, true);
+  if (lang === 'java') return buildTracedJava(result.code, spec, testInput, true);
+  return buildTracedJavaScript(result.code, spec, testInput, true);
+}
+
+/** Lines the harness puts before the student's code, so errors can be reported in their numbering. */
+export function userCodeLineOffset(program: string, lang: LangKey, code: string): number {
+  const needle = lang === 'java' ? normaliseJavaSource(code).body : code;
+  const at = program.indexOf(needle);
+  if (at <= 0) return 0;
+  let count = 0;
+  for (let i = 0; i < at; i++) if (program.charCodeAt(i) === 10) count++;
+  return count;
+}
+
+/**
+ * Rewrites `file:LINE` / `line N` references from harness numbering to the
+ * student's, and reports the first one that lands inside their own code.
+ */
+export function remapErrorLines(
+  text: string,
+  offset: number,
+  codeLines: number,
+): { text: string; line: number | null } {
+  let line: number | null = null;
+  const fix = (raw: string): string => {
+    const n = Number(raw) - offset;
+    if (n < 1 || n > codeLines) return raw;
+    if (line === null) line = n;
+    return String(n);
+  };
+  const remapped = text
+    .replace(/(\.(?:cpp|cc|java|py|js)):(\d+)/g, (_m, ext, n) => `${ext}:${fix(n)}`)
+    .replace(/(File "[^"]*", line )(\d+)/g, (_m, head, n) => `${head}${fix(n)}`);
+  return { text: remapped, line };
 }
