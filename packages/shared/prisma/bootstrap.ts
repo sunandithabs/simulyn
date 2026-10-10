@@ -102,6 +102,8 @@ async function main() {
   for (const p of PROGRAMMING_PROBLEMS) {
     const found = await prisma.problem.findFirst({ where: { title: p.title, type: 'PROGRAMMING' } });
     if (found) {
+      await prisma.testCase.deleteMany({ where: { problemId: found.id } });
+      await prisma.testCase.createMany({ data: p.testCases.map((tc, i) => ({ problemId: found.id, input: tc.input, expected: tc.expected, isHidden: tc.isHidden ?? false, order: i })) });
       problemIds.push(found.id);
       continue;
     }
