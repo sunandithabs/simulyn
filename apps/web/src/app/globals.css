@@ -729,7 +729,7 @@
 
 
 /* Brand mark: visible at a glance, with a restrained purple and gold hover signal. */
-.simulyn-landing .site-nav .wordmark { display: inline-block; position: relative; z-index: 1; color: var(--sim-text-hi, #eee6f4); font-family: var(--font-display); font-size: clamp(1.35rem, 2.4vw, 2rem); font-weight: 700; letter-spacing: -.075em; line-height: 1; text-shadow: 0 0 0 transparent; transition: color .35s ease, transform .35s var(--ease-instrument), text-shadow .35s ease; }
+.simulyn-landing .site-nav .wordmark { display: inline-block; position: relative; z-index: 1; color: var(--sim-text-hi, #eee6f4); font-family: var(--font-display); font-size: clamp(2rem, 3.6vw, 3rem); font-weight: 700; letter-spacing: -.075em; line-height: 1; text-shadow: 0 0 0 transparent; transition: color .35s ease, transform .35s var(--ease-instrument), text-shadow .35s ease; }
 .simulyn-landing .site-nav .wordmark span { color: var(--sim-gold, #d7b763); font-size: .42em; vertical-align: top; transition: color .35s ease; }
 .simulyn-landing .site-nav .wordmark:hover { color: #d9c0fa; transform: translateY(-2px) scale(1.035); text-shadow: 0 0 18px #8d4bc288, 0 0 34px color-mix(in srgb, var(--sim-gold, #d7b763) 33%, transparent); }
 .simulyn-landing .site-nav .wordmark:hover span { color: #f0d982; }
@@ -884,3 +884,5 @@ code, pre, .font-mono, .monaco-editor { font-variant-ligatures: normal; font-fea
   --sim-text-dim: #a893e0;
 }
 :root[data-theme='midnight'] body { background-color: #000; }
+
+@media (max-width: 800px) { .simulyn-landing .site-nav .wordmark { font-size: 1.75rem; } }
