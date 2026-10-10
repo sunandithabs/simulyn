@@ -61,6 +61,12 @@ export default function ProblemSolverPage() {
   const [customInput, setCustomInput] = useState('');
   const [customRunning, setCustomRunning] = useState(false);
   const [traceCase, setTraceCase] = useState(0);
+  const [leftTab, setLeftTab] = useState<'problem' | 'submissions'>('problem');
+  const [subs, setSubs] = useState<any[]>([]);
+  useEffect(() => {
+    if (leftTab !== 'submissions' || !problem?.id) return;
+    api.get<any>(`/submissions?problemId=${problem.id}&limit=50`).then((r: any) => setSubs(r?.data ?? r?.items ?? (Array.isArray(r) ? r : []))).catch(() => setSubs([]));
+  }, [leftTab, problem?.id]);
   const [saved, setSaved] = useState(false);
   const editorApi = useRef<{ format: () => void } | null>(null);
 
@@ -314,7 +320,30 @@ export default function ProblemSolverPage() {
               <ArrowLeft className="h-3.5 w-3.5" />
               All problems
             </Link>
-            <ProblemBrief problem={problem} />
+            <div className="mb-4 flex gap-4 border-b border-line text-[13px]">
+              <button onClick={() => setLeftTab('problem')} className={leftTab === 'problem' ? 'border-b-2 border-violet-lit pb-2 text-paper' : 'pb-2 text-muted'}>Problem</button>
+              <button onClick={() => setLeftTab('submissions')} className={leftTab === 'submissions' ? 'border-b-2 border-violet-lit pb-2 text-paper' : 'pb-2 text-muted'}>Submissions</button>
+            </div>
+            {leftTab === 'problem' ? (
+              <>
+                <ProblemBrief problem={problem} />
+              </>
+            ) : (
+              <ul className="space-y-1.5 text-[13px]">
+                {subs.length === 0 && <li className="text-muted">No submissions yet.</li>}
+                {subs.map((s: any) => (
+                  <li key={s.id}>
+                    <button
+                      onClick={async () => { const d: any = s.code ? s : await api.get<any>(`/submissions/${s.id}`); if (d?.code) setCode(d.code); }}
+                      className="flex w-full justify-between rounded border border-line px-3 py-2 text-left hover:bg-white/5"
+                    >
+                      <span>{new Date(s.createdAt).toLocaleString()} · {s.language}</span>
+                      <span>{s.passed ? 'Passed' : s.status}{s.executionMs != null ? ` · ${s.executionMs}ms` : ''}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <DiscussionThread problemId={problem.id} />
           </div>
           )}
