@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const VERSION = '2.0';
 const KEY = 'simulyn.whatsnew';
@@ -11,21 +12,31 @@ const SECTIONS: [string, string[]][] = [
 
 export function WhatsNew() {
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
     try { if (localStorage.getItem(KEY) !== VERSION) setOpen(true); } catch {}
   }, []);
+
   const close = () => {
     setOpen(false);
     try { localStorage.setItem(KEY, VERSION); } catch {}
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open]);
+
   return (
     <>
       <button onClick={() => setOpen(true)} className="font-mono text-[11px] text-muted hover:text-paper">v{VERSION}</button>
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={close}>
           <div className="w-full max-w-md rounded-xl border border-line bg-[#0b0b12] p-5 text-paper" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">What's new in v{VERSION}</h2>
+              <h2 className="text-base font-semibold">What&apos;s new in v{VERSION}</h2>
               <button onClick={close} aria-label="Close" className="text-muted hover:text-paper">✕</button>
             </div>
             {SECTIONS.map(([title, items]) => (
@@ -35,7 +46,8 @@ export function WhatsNew() {
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
