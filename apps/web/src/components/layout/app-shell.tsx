@@ -1,5 +1,6 @@
 'use client';
 
+import { WhatsNew } from '@/components/layout/whats-new';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronLeft,
@@ -250,6 +251,7 @@ export function AppShell({
 
             <div className="flex shrink-0 items-center gap-3">
               <NotificationBell allHref={role === 'STUDENT' ? '/student/notifications' : undefined} />
+              <WhatsNew />
               <ThemeSwitcher />
               <Link
                 href={profileHref ?? '#'}
