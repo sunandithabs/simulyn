@@ -35,6 +35,8 @@ export interface SeedProgrammingProblem {
   testCases: SeedTestCase[];
 }
 
+const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+const twoSumCase = (n: number, hidden = false) => ({ input: "[" + range(n).join(",") + "]\n" + (2 * n - 3), expected: "[" + (n - 2) + "," + (n - 1) + "]", ...(hidden ? { isHidden: true } : {}) });
 export const PROGRAMMING_PROBLEMS: SeedProgrammingProblem[] = [
   // ─────────────────────────────────────────────────────────────── 1
   {
@@ -84,8 +86,11 @@ export const PROGRAMMING_PROBLEMS: SeedProgrammingProblem[] = [
       { input: '[2,7,11,15]\n9', expected: '[0,1]' },
       { input: '[3,2,4]\n6', expected: '[1,2]' },
       { input: '[3,3]\n6', expected: '[0,1]' },
+      twoSumCase(12),
       { input: '[-1,-2,-3,-4,-5]\n-8', expected: '[2,4]', isHidden: true },
       { input: '[0,4,3,0]\n0', expected: '[0,3]', isHidden: true },
+      twoSumCase(20000, true),
+      twoSumCase(100000, true),
     ],
   },
 
