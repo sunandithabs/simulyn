@@ -14,9 +14,11 @@
     "test:phase5": "node test/phase5.mjs",
     "test:features": "node test/features.mjs",
     "test:termination": "node test/termination.mjs",
-    "test:leak": "node test/hidden-leak.mjs"
+    "test:leak": "node test/hidden-leak.mjs",
+    "test:engagement": "node test/engagement.mjs"
   },
   "dependencies": {
+    "nodemailer": "^6.9.14",
     "@nestjs/common": "^11.0.12",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.12",
@@ -46,6 +48,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.0",
+    "@types/nodemailer": "^6.4.15",
     "@types/node": "^22.10.2",
     "@types/passport-jwt": "^4.0.1",
     "socket.io-client": "^4.8.1",

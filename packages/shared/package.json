@@ -30,6 +30,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:bootstrap": "tsx prisma/bootstrap.ts",
+    "db:demo:move": "tsx prisma/move-demo-class.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "db:deploy": "prisma migrate deploy",

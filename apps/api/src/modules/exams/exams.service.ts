@@ -10,6 +10,7 @@ import { randomInt } from 'node:crypto';
 
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ProblemsService } from '../problems/problems.service';
 import { examDeadline, SubmissionsService } from '../submissions/submissions.service';
 import { CreateExamDto, SubmitExamDto, UpdateExamDto } from './dto/exam.dto';
@@ -61,6 +62,7 @@ export class ExamsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
     private readonly problems: ProblemsService,
     private readonly submissions: SubmissionsService,
   ) {}
@@ -142,6 +144,7 @@ export class ExamsService {
       select: EXAM_SELECT,
     });
 
+    if (exam.isPublished) await this.notifyPublished(exam.classId, exam.title, exam.id);
     this.logger.log(`${requester.username} created exam "${exam.title}"`);
     return { ...exam, status: statusOf(exam) };
   }
@@ -295,7 +298,18 @@ export class ExamsService {
       select: EXAM_SELECT,
     });
 
+    if (updated.isPublished && !exam.isPublished) {
+      await this.notifyPublished(updated.classId, updated.title, updated.id);
+    }
     return { ...updated, status: statusOf(updated) };
+  }
+
+  private notifyPublished(classId: string, title: string, id: string) {
+    return this.notifications.notifyClass(classId, {
+      type: 'EXAM_PUBLISHED',
+      title: `New exam: ${title}`,
+      link: `/student/exams/${id}`,
+    });
   }
 
   async remove(id: string, requester: AuthenticatedUser) {
@@ -417,6 +431,12 @@ export class ExamsService {
       data: { submittedAt: new Date(), autoSubmitted, totalScore },
     });
 
+    await this.notifications.notify([requester.id], {
+      type: 'EXAM_RESULT',
+      title: `Results ready: ${attempt.exam.title}`,
+      body: `Score: ${totalScore}`,
+      link: `/student/exams/${id}`,
+    });
     this.logger.log(
       `${requester.username} submitted exam "${attempt.exam.title}" (${totalScore} points${autoSubmitted ? ', auto' : ''})`,
     );

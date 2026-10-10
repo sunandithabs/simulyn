@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart3, CircuitBoard, FileClock, LayoutDashboard, Users } from 'lucide-react';
+import { BarChart3, CircuitBoard, FileClock, FileText, Megaphone, LayoutDashboard, Users, Rocket, UserCircle } from 'lucide-react';
 
 import { AppShell, type NavItem } from '@/components/layout/app-shell';
 import { SkeletonPanel } from '@/components/ui/skeleton';
@@ -11,7 +11,11 @@ const NAV: NavItem[] = [
   { href: '/teacher/classes', label: 'Classes', icon: Users },
   { href: '/teacher/problems', label: 'Problems', icon: CircuitBoard },
   { href: '/teacher/exams', label: 'Exams', icon: FileClock },
+  { href: '/teacher/hackathons', label: 'Hackathons', icon: Rocket },
+  { href: '/teacher/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/teacher/reports', label: 'Reports', icon: FileText },
+  { href: '/teacher/profile', label: 'Profile', icon: UserCircle },
 ];
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {

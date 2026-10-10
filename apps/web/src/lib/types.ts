@@ -571,3 +571,193 @@ export interface DiscussionPost {
   author: { id: string; username: string; displayName: string; avatar: string | null; role: Role };
   replies: DiscussionPost[];
 }
+
+// ── Hackathons ──
+
+export type HackathonStatus = 'DRAFT' | 'UPCOMING' | 'LIVE' | 'ENDED';
+
+export interface HackathonSummary {
+  id: string;
+  title: string;
+  description: string;
+  rules: string | null;
+  startsAt: string;
+  endsAt: string;
+  maxTeamSize: number;
+  mode?: 'PROJECT' | 'PROBLEMS';
+  criteria: { name: string; max: number }[];
+  isPublished: boolean;
+  resultsPublished: boolean;
+  status: HackathonStatus;
+  host: { displayName: string };
+  _count: { teams: number };
+}
+
+export interface HackathonTeamMember {
+  id: string;
+  isLeader: boolean;
+  user: { id: string; displayName: string; username: string };
+}
+
+export interface HackathonSubmissionData {
+  id: string;
+  title: string;
+  description: string;
+  repoUrl: string | null;
+  demoUrl: string | null;
+  submittedAt: string;
+}
+
+export interface MyHackathonTeam {
+  id: string;
+  name: string;
+  joinCode: string;
+  members: HackathonTeamMember[];
+  submission: HackathonSubmissionData | null;
+}
+
+export interface HackathonDetail extends HackathonSummary {
+  managed: boolean;
+  myTeam: MyHackathonTeam | null;
+  problems?: { id: string; title: string; difficulty: string; category: string; points: number }[];
+}
+
+export interface HackathonScoreboard {
+  mode: string;
+  rows: { rank?: number; team: string; score?: number; solved?: number; members?: number; submitted?: boolean }[];
+}
+
+export interface HackathonInviteRow {
+  id: string;
+  team: { name: string; hackathon: { id: string; title: string } };
+  inviter: { displayName: string; username: string };
+}
+
+export interface HackathonTeamAdminRow {
+  id: string;
+  name: string;
+  joinCode: string;
+  members: HackathonTeamMember[];
+  submission: HackathonSubmissionData | null;
+  judgeCount: number;
+  averageScore: number | null;
+  myScore: { score: number; comment: string | null; breakdown: Record<string, number> | null } | null;
+}
+
+export interface HackathonLeaderboardRow {
+  rank: number;
+  submissionId: string;
+  team: string;
+  members: string[];
+  title: string;
+  repoUrl: string | null;
+  demoUrl: string | null;
+  averageScore: number;
+  judgeCount: number;
+  comments: string[];
+}
+
+// ── Research (real-user SUS + usage) ──
+
+export interface ResearchSummary {
+  scope: string;
+  excludedDemoAccounts: number;
+  participants: {
+    registered: number;
+    consented: number;
+    surveyed: number;
+    surveyResponseRate: number | null;
+    activeLast14Days: number;
+    withAtLeastOneSubmission: number;
+    withAtLeastOneSolve: number;
+  };
+  sus: {
+    n: number;
+    mean: number | null;
+    median: number | null;
+    stdev: number | null;
+    min: number | null;
+    max: number | null;
+    bands: Record<string, number>;
+    itemMeans: (number | null)[];
+    commentsCount: number;
+  };
+  quick: { n: number; meanScore: number | null; itemMeans: (number | null)[] };
+  usage: {
+    submissions: number;
+    passRate: number | null;
+    averageScore: number | null;
+    perLanguage: Record<string, { submissions: number; passed: number }>;
+    perDay: { date: string; count: number }[];
+  };
+  exams: {
+    attempts: number;
+    submitted: number;
+    flagged: number;
+    terminated: number;
+    averageIntegrity: number | null;
+    violations: number;
+  };
+}
+
+export interface SurveyFeedbackRow {
+  id: string;
+  participant: string;
+  kind: 'SUS' | 'QUICK';
+  susScore: number | null;
+  quickScore: number | null;
+  band: string | null;
+  answers: number[];
+  freeText: string | null;
+  submittedAt: string;
+}
+
+// ── Teacher profile ──
+
+export interface TeacherCategoryStat {
+  category: string;
+  attempts: number;
+  passed: number;
+  accuracy: number;
+}
+
+export interface TeacherProfile {
+  user: {
+    id: string;
+    displayName: string;
+    username: string;
+    email: string;
+    avatar: string | null;
+    role: Role;
+    createdAt: string;
+    lastLoginAt: string | null;
+  };
+  classes: { id: string; name: string; code: string; isArchived: boolean; students: number }[];
+  students: { total: number; activeLast7Days: number };
+  content: { problemsAuthored: number; problemsPublished: number; announcements: number };
+  submissions: { last91Days: number; passRate: number | null };
+  exams: {
+    total: number;
+    byStatus: Record<'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'COMPLETED', number>;
+    attempts: number;
+    flagged: number;
+    terminated: number;
+    averageIntegrity: number | null;
+  };
+  hackathons: {
+    total: number;
+    byStatus: Record<'DRAFT' | 'UPCOMING' | 'LIVE' | 'ENDED', number>;
+    teams: number;
+  };
+  weakestCategories: TeacherCategoryStat[];
+  strongestCategories: TeacherCategoryStat[];
+  activityDates: string[];
+  recentSubmissions: {
+    id: string;
+    passed: boolean;
+    score: number;
+    createdAt: string;
+    user: { displayName: string };
+    problem: { title: string; points: number };
+  }[];
+}

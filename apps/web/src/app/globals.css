@@ -856,11 +856,10 @@ code, pre, .font-mono, .monaco-editor { font-variant-ligatures: normal; font-fea
 
 
 /*
-  Midnight themes: a pure black page, purple accents, and either white or
-  lavender text. Gold is recoloured to purple so nothing reads as the old accent.
+  Midnight theme: a pure black page with purple accents and lavender text.
+  Gold is recoloured to purple so nothing reads as the old accent.
 */
-:root[data-theme='midnight'],
-:root[data-theme='midnight-violet'] {
+:root[data-theme='midnight'] {
   --color-ink: #000000;
   --color-ink-raised: #0a0a10;
   --color-ink-sunken: #000000;
@@ -877,20 +876,11 @@ code, pre, .font-mono, .monaco-editor { font-variant-ligatures: normal; font-fea
   --sim-gold-lit: #c4b5fd;
   --sim-surf-1: #0d0d14;
   --sim-surf-2: #05050a;
-}
-:root[data-theme='midnight'] {
-  --color-paper: #fafafa;
-  --color-muted: #a3a3b8;
-  --color-faint: #6b6b80;
-  --sim-text-hi: #ffffff;
-  --sim-text-dim: #b4b4c8;
-}
-:root[data-theme='midnight-violet'] {
+
   --color-paper: #e4d9ff;
   --color-muted: #a08ae0;
   --color-faint: #6e5aa8;
   --sim-text-hi: #efe6ff;
   --sim-text-dim: #a893e0;
 }
-:root[data-theme='midnight'] body,
-:root[data-theme='midnight-violet'] body { background-color: #000; }
+:root[data-theme='midnight'] body { background-color: #000; }

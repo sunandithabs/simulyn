@@ -29,6 +29,13 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  notifications  Notification[]
+  hackathonsHosted   Hackathon[]       @relation("HackathonHost")
+  hackathonMembers   HackathonMember[]
+  hackathonScores    HackathonScore[]
+  invitesReceived    HackathonInvite[] @relation("InviteeInvites")
+  invitesSent        HackathonInvite[] @relation("InviterInvites")
+  announcements  Announcement[]
   refreshTokens   RefreshToken[]
   enrollments     Enrollment[]
   taughtClasses   Class[]          @relation("ClassTeacher")
@@ -77,6 +84,7 @@ model Class {
   enrollments      Enrollment[]
   assignedProblems ClassProblem[]
   exams            Exam[]
+  announcements    Announcement[]
 
   @@index([teacherId])
   @@index([code])
@@ -137,6 +145,7 @@ model Problem {
   examProblems   ExamProblem[]
   discussions    DiscussionPost[]
   hints          Hint[]
+  hackathonProblems HackathonProblem[]
 
   @@index([type, difficulty])
   @@index([category])
@@ -456,8 +465,149 @@ model SurveyResponse {
   id          String   @id @default(cuid())
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  susAnswers  String   // JSON array of 10 ints, 1-5
-  susScore    Float    // computed 0-100 SUS score
+  susAnswers  String   // JSON array: 10 ints (full SUS) or 3 ints (quick survey), each 1-5
+  kind        String   @default("SUS") // "SUS" (10 items) or "QUICK" (3 items); the two scores are not comparable
+  susScore    Float?   // 0-100 SUS score; only set when kind = "SUS"
+  quickScore  Float?   // 0-100 quick-survey score; only set when kind = "QUICK"
   freeText    String?
   createdAt   DateTime @default(now())
+}
+
+model Hackathon {
+  id               String   @id @default(cuid())
+  title            String
+  description      String
+  rules            String?
+  startsAt         DateTime
+  endsAt           DateTime
+  maxTeamSize      Int      @default(4)
+  mode             String   @default("PROJECT") // PROJECT | PROBLEMS
+  criteria         String   @default("[]") // JSON [{name,max}]; empty = single 0-100 score
+  isPublished      Boolean  @default(false)
+  resultsPublished Boolean  @default(false)
+  startNotifiedAt  DateTime?
+  hostId           String
+  host             User     @relation("HackathonHost", fields: [hostId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  teams    HackathonTeam[]
+  problems HackathonProblem[]
+
+  @@index([hostId])
+  @@index([startsAt])
+}
+
+model HackathonTeam {
+  id          String    @id @default(cuid())
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  name        String
+  joinCode    String    @unique
+  createdAt   DateTime  @default(now())
+
+  members    HackathonMember[]
+  submission HackathonSubmission?
+  invites    HackathonInvite[]
+
+  @@unique([hackathonId, name])
+  @@index([hackathonId])
+}
+
+model HackathonMember {
+  id          String        @id @default(cuid())
+  teamId      String
+  team        HackathonTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Denormalised so "one team per hackathon per person" is a DB constraint.
+  hackathonId String
+  isLeader    Boolean       @default(false)
+  joinedAt    DateTime      @default(now())
+
+  @@unique([hackathonId, userId])
+  @@index([teamId])
+}
+
+model HackathonSubmission {
+  id          String        @id @default(cuid())
+  teamId      String        @unique
+  team        HackathonTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  repoUrl     String?
+  demoUrl     String?
+  submittedAt DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  scores HackathonScore[]
+}
+
+model HackathonScore {
+  id           String              @id @default(cuid())
+  submissionId String
+  submission   HackathonSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  judgeId      String
+  judge        User                @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  score        Int                 // 0-100 (normalised from breakdown when criteria exist)
+  breakdown    String?             // JSON {criterionName: points}
+  comment      String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([submissionId, judgeId])
+  @@index([judgeId])
+}
+
+model HackathonInvite {
+  id          String        @id @default(cuid())
+  teamId      String
+  team        HackathonTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  hackathonId String
+  inviteeId   String
+  invitee     User          @relation("InviteeInvites", fields: [inviteeId], references: [id], onDelete: Cascade)
+  inviterId   String
+  inviter     User          @relation("InviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+
+  @@unique([teamId, inviteeId])
+  @@index([inviteeId])
+}
+
+
+model HackathonProblem {
+  id          String    @id @default(cuid())
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  problemId   String
+  problem     Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([hackathonId, problemId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([classId, createdAt])
 }

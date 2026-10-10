@@ -4,9 +4,11 @@ import {
   CircuitBoard,
   ClipboardList,
   FileClock,
+  FileText,
   LayoutDashboard,
   Trophy,
   User,
+  Rocket,
 } from 'lucide-react';
 
 import { AppShell, type NavItem } from '@/components/layout/app-shell';
@@ -18,9 +20,11 @@ const NAV: NavItem[] = [
   { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/student/problems', label: 'Problems', icon: CircuitBoard },
   { href: '/student/exams', label: 'Exams', icon: FileClock },
+  { href: '/student/hackathons', label: 'Hackathons', icon: Rocket },
   { href: '/student/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { href: '/student/profile', label: 'Profile', icon: User },
+  { href: '/student/report', label: 'My report', icon: FileText },
   { href: '/student/survey', label: 'Feedback survey', icon: ClipboardList },
+  { href: '/student/profile', label: 'Profile', icon: User },
 ];
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
