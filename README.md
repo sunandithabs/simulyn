@@ -1,5 +1,7 @@
 # SIMULYN
 
+> **v2.0** is out. See the [changelog](CHANGELOG.md).
+
 Virtual engineering labs for programming and electronics education. Students write code
 against real compilers, measure circuits, and sit timed exams their instructor can watch
 in real time.
