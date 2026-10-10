@@ -36,6 +36,22 @@ export function durationToMs(value: string): number {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  /**
+   * Hashes of refresh tokens rotated in the last few seconds. Two tabs (or a
+   * retried request) can present the same cookie at nearly the same moment; the
+   * loser is not an attacker and must not trigger a full session revocation.
+   */
+  private readonly recentlyRotated = new Map<string, number>();
+  private static readonly ROTATION_GRACE_MS = 10_000;
+
+  private wasJustRotated(hash: string): boolean {
+    const now = Date.now();
+    for (const [key, at] of this.recentlyRotated) {
+      if (now - at > AuthService.ROTATION_GRACE_MS) this.recentlyRotated.delete(key);
+    }
+    return this.recentlyRotated.has(hash);
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -117,9 +133,10 @@ export class AuthService {
 
   /** Accepts either a username or an email address. */
   async validateCredentials(identifier: string, password: string): Promise<User> {
+    const id = identifier.trim();
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ username: identifier }, { email: identifier.toLowerCase() }],
+        OR: [{ username: id }, { email: id.toLowerCase() }],
       },
     });
 
@@ -185,10 +202,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    const rawHash = this.hashToken(rawToken);
     const stored = await this.prisma.refreshToken.findUnique({
-      where: { token: this.hashToken(rawToken) },
+      where: { token: rawHash },
       include: { user: true },
     });
+
+    if (!stored && this.wasJustRotated(rawHash)) {
+      // A sibling request just rotated this token. Issue a fresh pair without revoking anything.
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      if (!user || !user.isActive) throw new UnauthorizedException('Invalid or expired refresh token');
+      const pair = await this.issueTokens(user);
+      res.cookie(REFRESH_COOKIE, pair.refreshToken, this.cookieOptions());
+      return { accessToken: pair.accessToken, user: this.toAuthUser(user) };
+    }
 
     if (!stored || stored.userId !== payload.sub) {
       // Token verified but is not in the store: it was already rotated or
@@ -208,7 +235,9 @@ export class AuthService {
     }
 
     // Rotate: the presented token is consumed and replaced.
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    const consumed = await this.prisma.refreshToken.deleteMany({ where: { id: stored.id } });
+    if (consumed.count === 0) throw new UnauthorizedException('Refresh token already used, please retry');
+    this.recentlyRotated.set(rawHash, Date.now());
     const { accessToken, refreshToken } = await this.issueTokens(stored.user);
     res.cookie(REFRESH_COOKIE, refreshToken, this.cookieOptions());
 

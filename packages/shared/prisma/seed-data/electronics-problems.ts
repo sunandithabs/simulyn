@@ -248,4 +248,111 @@ export const ELECTRONICS_PROBLEMS: SeedElectronicsProblem[] = [
       'fc = 1 / (2πRC) ≈ 995 Hz. A first-order filter is −3 dB at fc and rolls off at −20 dB per decade after it.',
     ],
   },
+
+  {
+    title: 'Parallel Resistor Branches',
+    difficulty: 'EASY',
+    category: 'DC Circuits',
+    points: 100,
+    tags: ['parallel','ohms-law','dc'],
+    description: 'A 12 V supply drives `R1 = 6 kΩ` and `R2 = 3 kΩ` in parallel. Build it in the simulator and answer the questions.',
+    constraints: ['Assume ideal components'],
+    params: { supply: 12, R1: 6000, R2: 3000 },
+    questions: [
+      { id: 'req', text: 'What is the equivalent resistance?', answer: 2, tolerance: 0.02, unit: 'kΩ' },
+      { id: 'itotal', text: 'What is the total supply current?', answer: 6, tolerance: 0.05, unit: 'mA' },
+      { id: 'ir1', text: 'What current flows through R1?', answer: 2, tolerance: 0.05, unit: 'mA' },
+      { id: 'ptotal', text: 'What is the total power drawn?', answer: 72, tolerance: 0.5, unit: 'mW' },
+    ],
+    hints: [
+      'Each parallel branch sees the full supply voltage.',
+      'Req = R1·R2 / (R1 + R2).',
+      'Branch current is V / R; total power is V · Itotal.',
+    ],
+  },
+
+  {
+    title: 'RL Time Constant',
+    difficulty: 'MEDIUM',
+    category: 'Transients',
+    points: 150,
+    tags: ['inductor','transient','time-constant'],
+    description: 'A 10 V step is applied to `L = 10 mH` in series with `R = 100 Ω`. The inductor starts with zero current.',
+    constraints: ['Assume an ideal inductor and source'],
+    params: { supply: 10, R: 100, L: 0.01 },
+    questions: [
+      { id: 'tau', text: 'What is the time constant?', answer: 0.1, tolerance: 0.005, unit: 'ms' },
+      { id: 'ifinal', text: 'What is the final steady-state current?', answer: 100, tolerance: 0.5, unit: 'mA' },
+      { id: 'it', text: 'What is the current after one time constant?', answer: 63.2, tolerance: 0.5, unit: 'mA' },
+    ],
+    hints: [
+      'The time constant of a series RL circuit is L / R.',
+      'At steady state the inductor behaves like a short circuit.',
+      'i(t) = (V/R)(1 − e^(−t/τ)); at t = τ it reaches about 63.2%.',
+    ],
+  },
+
+  {
+    title: 'Inverting Op-Amp Amplifier',
+    difficulty: 'MEDIUM',
+    category: 'Op-Amps',
+    points: 150,
+    tags: ['op-amp','inverting','gain'],
+    description: 'An ideal op-amp is wired as an inverting amplifier with `Rin = 1 kΩ`, `Rf = 10 kΩ` and `Vin = 0.5 V`. The supply rails are ±12 V.',
+    constraints: ['Ideal op-amp, negative feedback'],
+    params: { Rin: 1000, Rf: 10000, Vin: 0.5, rail: 12 },
+    questions: [
+      { id: 'gain', text: 'What is the closed-loop gain?', answer: -10, tolerance: 0.05, unit: 'V/V' },
+      { id: 'vout', text: 'What is the output voltage?', answer: -5, tolerance: 0.05, unit: 'V' },
+      { id: 'iin', text: 'What current flows through Rin?', answer: 0.5, tolerance: 0.01, unit: 'mA' },
+    ],
+    hints: [
+      'The inverting input is a virtual ground.',
+      'Gain = −Rf / Rin.',
+      'The input current all flows through Rf, so Vout = −Iin · Rf.',
+    ],
+  },
+
+  {
+    title: 'Zener Shunt Regulator',
+    difficulty: 'MEDIUM',
+    category: 'Diodes',
+    points: 150,
+    tags: ['zener','regulator','diode'],
+    description: 'A 12 V source feeds a `220 Ω` series resistor and a `5.1 V` zener in parallel with a `1 kΩ` load. The zener is in breakdown.',
+    constraints: ['Ideal zener at exactly 5.1 V'],
+    params: { supply: 12, Rs: 220, Vz: 5.1, RL: 1000 },
+    questions: [
+      { id: 'irs', text: 'What current flows through the series resistor?', answer: 31.36, tolerance: 0.1, unit: 'mA' },
+      { id: 'il', text: 'What is the load current?', answer: 5.1, tolerance: 0.05, unit: 'mA' },
+      { id: 'iz', text: 'What is the zener current?', answer: 26.26, tolerance: 0.1, unit: 'mA' },
+      { id: 'pz', text: 'How much power does the zener dissipate?', answer: 133.9, tolerance: 0.5, unit: 'mW' },
+    ],
+    hints: [
+      'The output is held at Vz, so the voltage across Rs is known.',
+      'Irs = (Vs − Vz) / Rs; the load current is Vz / RL.',
+      'Iz = Irs − IL, and Pz = Vz · Iz.',
+    ],
+  },
+
+  {
+    title: 'BJT as a Switch',
+    difficulty: 'HARD',
+    category: 'Transistors',
+    points: 150,
+    tags: ['bjt','switch','saturation'],
+    description: 'An NPN BJT (`β = 100`, `Vbe = 0.7 V`) switches a `330 Ω` load from a 5 V rail. The base is driven from 5 V through `10 kΩ`.',
+    constraints: ['Ignore Vce(sat)'],
+    params: { vcc: 5, RB: 10000, RC: 330, beta: 100, vbe: 0.7 },
+    questions: [
+      { id: 'ib', text: 'What is the base current?', answer: 0.43, tolerance: 0.01, unit: 'mA' },
+      { id: 'ic', text: 'What is the collector current (saturated)?', answer: 15.15, tolerance: 0.1, unit: 'mA' },
+      { id: 'forced', text: 'What is the forced beta IC / IB?', answer: 35.2, tolerance: 0.3, unit: '' },
+    ],
+    hints: [
+      'Base current flows through RB with Vbe dropped.',
+      'If β·IB exceeds Vcc / RC, the transistor saturates.',
+      'In saturation IC = Vcc / RC, so the forced beta is IC / IB.',
+    ],
+  },
 ];

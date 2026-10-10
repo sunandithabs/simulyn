@@ -41,7 +41,7 @@ export default function TeacherExamsPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="instrument">Assessment</span>
@@ -70,60 +70,72 @@ export default function TeacherExamsPage() {
           ]}
         />
 
-        <div className="mt-4 space-y-2.5">
-          {exams === null ? (
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
-          ) : visible.length === 0 ? (
-            <Panel>
-              <Empty
-                icon={CalendarClock}
-                title={filter === 'all' ? 'No exams yet' : `No ${filter.toLowerCase()} exams`}
-                description="Schedule an exam to open a timed, proctored window for a class."
-                action={
-                  <Link href="/teacher/exams/create">
-                    <Button size="sm">Schedule an exam</Button>
-                  </Link>
-                }
-              />
-            </Panel>
-          ) : (
-            visible.map((exam) => (
-              <Panel key={exam.id} hover className="p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <Link href={`/teacher/exams/${exam.id}`} className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-[15px] font-medium text-paper">{exam.title}</h2>
-                      <Badge tone={TONE[exam.status]}>{exam.status}</Badge>
+        {exams === null ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-44 w-full" />
+            ))}
+          </div>
+        ) : visible.length === 0 ? (
+          <Panel className="mt-4">
+            <Empty
+              icon={CalendarClock}
+              title={filter === 'all' ? 'No exams yet' : `No ${filter.toLowerCase()} exams`}
+              description="Schedule an exam to open a timed, proctored window for a class."
+              action={
+                <Link href="/teacher/exams/create">
+                  <Button size="sm">Schedule an exam</Button>
+                </Link>
+              }
+            />
+          </Panel>
+        ) : (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((exam) => (
+              <Panel key={exam.id} hover className="flex h-full flex-col p-4">
+                <Link href={`/teacher/exams/${exam.id}`} className="block min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="min-w-0 text-[15px] leading-snug font-medium text-paper">{exam.title}</h2>
+                    <Badge tone={TONE[exam.status]}>{exam.status}</Badge>
+                  </div>
+                  <div className="mt-2 font-mono text-[11px] text-brass-lit">{exam.class.name}</div>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div>
+                      <div className="text-lg leading-none font-semibold text-paper tabular">{exam._count.problems}</div>
+                      <div className="instrument mt-1">problems</div>
                     </div>
-                    <div className="mt-1.5 font-mono text-[11px] text-faint">
-                      {exam.class.name} · {exam._count.problems} problems · {exam.durationMin} min ·{' '}
-                      {exam._count.attempts} attempt{exam._count.attempts === 1 ? '' : 's'}
+                    <div>
+                      <div className="text-lg leading-none font-semibold text-paper tabular">{exam.durationMin}</div>
+                      <div className="instrument mt-1">minutes</div>
                     </div>
-                    <div className="mt-1 font-mono text-[11px] text-muted">
-                      {formatDateTime(exam.scheduledStart)} → {formatDateTime(exam.scheduledEnd)}
+                    <div>
+                      <div className="text-lg leading-none font-semibold text-paper tabular">{exam._count.attempts}</div>
+                      <div className="instrument mt-1">attempts</div>
                     </div>
-                  </Link>
-
-                  <div className="flex shrink-0 gap-2">
-                    {exam.status === 'ACTIVE' ? (
-                      <Link href={`/teacher/exams/${exam.id}/proctor`}>
-                        <Button variant="brass" size="sm">
-                          <Radio className="h-3.5 w-3.5" />
-                          Proctor
-                        </Button>
-                      </Link>
-                    ) : null}
-                    <Link href={`/teacher/exams/${exam.id}`}>
-                      <Button variant="outline" size="sm">
-                        Open
+                  </div>
+                  <div className="mt-3 border-t border-line pt-3 font-mono text-[11px] text-muted">
+                    {formatDateTime(exam.scheduledStart)} → {formatDateTime(exam.scheduledEnd)}
+                  </div>
+                </Link>
+                <div className="mt-3 flex gap-2">
+                  {exam.status === 'ACTIVE' ? (
+                    <Link href={`/teacher/exams/${exam.id}/proctor`} className="flex-1">
+                      <Button variant="brass" size="sm" className="w-full justify-center">
+                        <Radio className="h-3.5 w-3.5" />
+                        Proctor
                       </Button>
                     </Link>
-                  </div>
+                  ) : null}
+                  <Link href={`/teacher/exams/${exam.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full justify-center">
+                      Open
+                    </Button>
+                  </Link>
                 </div>
               </Panel>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </PageTransition>
   );

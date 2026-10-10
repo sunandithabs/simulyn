@@ -26,7 +26,9 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: 'SIMULYN — Virtual Engineering Labs',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  title: { default: 'SIMULYN — Virtual Engineering Labs', template: '%s · SIMULYN' },
+  openGraph: { type: 'website', siteName: 'SIMULYN', title: 'SIMULYN — Virtual Engineering Labs' },
   description:
     'Programming and electronics labs for engineering students: write code, simulate circuits, sit proctored exams.',
 };
@@ -42,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var t=localStorage.getItem('simulyn.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}",
+              "try{var t=localStorage.getItem('simulyn.theme');if(t==='midnight-violet')t='midnight';document.documentElement.dataset.theme=(t==='midnight'||t==='instrument')?t:'instrument'}catch(e){}",
           }}
         />
       </head>

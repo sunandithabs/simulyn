@@ -174,6 +174,8 @@ async function write<T>(method: string, path: string, body?: unknown, options?: 
 }
 
 export const api = {
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    write<T>('PUT', path, body, options),
   get: cachedGet,
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     write<T>('POST', path, body, options),

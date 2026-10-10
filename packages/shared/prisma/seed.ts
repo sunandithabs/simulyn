@@ -35,6 +35,15 @@ function daysAgo(n: number): Date {
 
 /** Child-first deletion order — SQLite enforces the foreign keys. */
 async function reset() {
+  await prisma.hackathonScore.deleteMany();
+  await prisma.hackathonSubmission.deleteMany();
+  await prisma.hackathonInvite.deleteMany();
+  await prisma.hackathonMember.deleteMany();
+  await prisma.hackathonProblem.deleteMany();
+  await prisma.hackathonTeam.deleteMany();
+  await prisma.hackathon.deleteMany();
+  await prisma.announcement.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.testResult.deleteMany();
   await prisma.violation.deleteMany();
   await prisma.submission.deleteMany();
