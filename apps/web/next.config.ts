@@ -4,21 +4,21 @@ const isDev = process.env.NODE_ENV !== "production";
 const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const ws = api.replace(/^http/, "ws");
 
-// Next injects inline bootstrap scripts, so script-src needs unsafe-inline
+// Next injects inline bootstrap scripts, so script-src needs 'unsafe-inline'
 // (a nonce setup would need a middleware per request). Everything else is locked down.
 const csp = [
-  "default-src self",
-  `script-src self unsafe-inline${isDev ? " unsafe-eval" : ""}`,
-  "style-src self unsafe-inline",
-  "img-src self data: blob:",
-  "font-src self data:",
-  `connect-src self ${api} ${ws}`,
-  "worker-src self blob:",
-  "media-src self blob:",
-  "object-src none",
-  "base-uri self",
-  "form-action self",
-  "frame-ancestors none",
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${api} ${ws}`,
+  "worker-src 'self' blob:",
+  "media-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
 ].join("; ");
 
 const security = [
