@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import { applyTheme, DEFAULT_THEME_ID, THEME_STORAGE_KEY } from '@/lib/themes';
+import { applyTheme, DEFAULT_THEME_ID, resolveThemeId, THEME_STORAGE_KEY } from '@/lib/themes';
 
 interface ThemeContextValue {
   themeId: string;
@@ -18,15 +18,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeIdState] = useState(DEFAULT_THEME_ID);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
+    let stored = DEFAULT_THEME_ID;
+    try {
+      stored = resolveThemeId(window.localStorage.getItem(THEME_STORAGE_KEY));
+      window.localStorage.setItem(THEME_STORAGE_KEY, stored);
+    } catch {}
     setThemeIdState(stored);
     applyTheme(stored);
   }, []);
 
   function setThemeId(id: string) {
-    setThemeIdState(id);
-    window.localStorage.setItem(THEME_STORAGE_KEY, id);
-    applyTheme(id);
+    const next = resolveThemeId(id);
+    setThemeIdState(next);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {}
+    applyTheme(next);
   }
 
   return (

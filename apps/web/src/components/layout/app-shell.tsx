@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 
 import { ThemeSwitcher } from '@/components/brand/theme-switcher';
 import { useLockdown } from '@/components/layout/lockdown';
+import { NotificationBell } from '@/components/layout/notification-bell';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LevelMeter } from '@/components/ui/meter';
@@ -49,11 +50,15 @@ export function AppShell({
   const [progress, setProgress] = useState<GamificationMe | null>(null);
 
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1');
+    try {
+      setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1');
+    } catch {}
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    } catch {}
   }, [collapsed]);
 
   // Close the mobile drawer whenever the route changes.
@@ -70,6 +75,8 @@ export function AppShell({
       alive = false;
     };
   }, [role, pathname]);
+
+  const profileHref = role === 'STUDENT' ? '/student/profile' : role === 'TEACHER' ? '/teacher/profile' : null;
 
   const isActive = (href: string) =>
     pathname === href || (href !== `/${role.toLowerCase()}` && pathname.startsWith(`${href}/`));
@@ -242,12 +249,20 @@ export function AppShell({
             )}
 
             <div className="flex shrink-0 items-center gap-3">
-              <div className="hidden text-right sm:block">
-                <div className="text-[13px] font-medium text-paper">{user?.displayName}</div>
-                <div className="font-mono text-[10px] text-faint">@{user?.username}</div>
-              </div>
+              <NotificationBell allHref={role === 'STUDENT' ? '/student/notifications' : undefined} />
               <ThemeSwitcher />
-              <Avatar name={user?.displayName ?? '?'} avatar={user?.avatar} size="sm" />
+              <Link
+                href={profileHref ?? '#'}
+                aria-label="Your profile"
+                className={cn('flex items-center gap-3', !profileHref && 'pointer-events-none')}
+                tabIndex={profileHref ? 0 : -1}
+              >
+                <div className="hidden text-right sm:block">
+                  <div className="text-[13px] font-medium text-paper">{user?.displayName}</div>
+                  <div className="font-mono text-[10px] text-faint">@{user?.username}</div>
+                </div>
+                <Avatar name={user?.displayName ?? '?'} avatar={user?.avatar} size="sm" />
+              </Link>
               <Button
                 variant="ghost"
                 size="icon"

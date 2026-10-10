@@ -1,6 +1,6 @@
 'use client';
 
-import { GraduationCap, LayoutDashboard, Settings, Users } from 'lucide-react';
+import { GraduationCap, LayoutDashboard, Settings, Users, Rocket, ClipboardList } from 'lucide-react';
 
 import { AppShell, type NavItem } from '@/components/layout/app-shell';
 import { SkeletonPanel } from '@/components/ui/skeleton';
@@ -10,6 +10,8 @@ const NAV: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/classes', label: 'Classes', icon: GraduationCap },
+  { href: '/admin/hackathons', label: 'Hackathons', icon: Rocket },
+  { href: '/admin/research', label: 'Research', icon: ClipboardList },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

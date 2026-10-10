@@ -48,8 +48,25 @@ export class ResearchService {
   }
 
   async recordSurvey(userId: string, susAnswers: number[], freeText?: string) {
-    if (susAnswers.length !== 10 || susAnswers.some((a) => a < 1 || a > 5)) {
-      throw new BadRequestException('susAnswers must be 10 integers between 1 and 5');
+    // 10 = full SUS (legacy); 3 = quick survey with positively worded items.
+    if (![3, 10].includes(susAnswers.length) || susAnswers.some((a) => a < 1 || a > 5)) {
+      throw new BadRequestException('susAnswers must be 3 or 10 integers between 1 and 5');
+    }
+    if (susAnswers.length === 3) {
+      const avg = susAnswers.reduce((a, b) => a + b, 0) / 3;
+      const quickScore = Math.round(((avg - 1) / 4) * 1000) / 10; // 0-100, NOT a SUS score
+      const data = {
+        susAnswers: JSON.stringify(susAnswers),
+        kind: 'QUICK',
+        quickScore,
+        susScore: null,
+        freeText,
+      };
+      return this.prisma.surveyResponse.upsert({
+        where: { userId },
+        create: { userId, ...data },
+        update: data,
+      });
     }
     // Standard SUS scoring: odd items (1-indexed) contribute (score-1),
     // even items contribute (5-score); sum * 2.5 -> 0-100.
@@ -57,12 +74,17 @@ export class ResearchService {
     susAnswers.forEach((score, i) => {
       total += i % 2 === 0 ? score - 1 : 5 - score;
     });
-    const susScore = total * 2.5;
-
+    const data = {
+      susAnswers: JSON.stringify(susAnswers),
+      kind: 'SUS',
+      susScore: total * 2.5,
+      quickScore: null,
+      freeText,
+    };
     return this.prisma.surveyResponse.upsert({
       where: { userId },
-      create: { userId, susAnswers: JSON.stringify(susAnswers), susScore, freeText },
-      update: { susAnswers: JSON.stringify(susAnswers), susScore, freeText },
+      create: { userId, ...data },
+      update: data,
     });
   }
 
@@ -119,7 +141,7 @@ export class ResearchService {
         }),
         this.prisma.studyConsent.findMany({ select: { userId: true, createdAt: true } }),
         this.prisma.surveyResponse.findMany({
-          select: { userId: true, susAnswers: true, susScore: true, freeText: true },
+          select: { userId: true, kind: true, susAnswers: true, susScore: true, quickScore: true, freeText: true },
         }),
       ]);
 
@@ -176,7 +198,9 @@ export class ResearchService {
       survey_sus: toCsv(
         surveys.map((s) => ({
           participantId: pseudo(s.userId),
+          kind: s.kind,
           susScore: s.susScore,
+          quickScore: s.quickScore,
           susAnswers: s.susAnswers,
           freeText: s.freeText ?? '',
         })),
