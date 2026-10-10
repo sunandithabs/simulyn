@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@simulyn/shared';
@@ -22,6 +22,12 @@ export class ClassroomInsightsDto {
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
 
+  @Get('teacher/me')
+  @ApiOperation({ summary: 'The signed-in teacher\'s own stats: classes, students, content, exams, hackathons' })
+  teacherProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.analytics.teacherProfile(user);
+  }
+
   @Get('class/:classId')
   @ApiOperation({ summary: 'Class overview: accuracy, activity and the weakest categories' })
   classOverview(@Param('classId') classId: string, @CurrentUser() user: AuthenticatedUser) {
@@ -32,6 +38,16 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Per-student breakdown including violations and XP' })
   classStudents(@Param('classId') classId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.analytics.classStudents(classId, user);
+  }
+
+  @Get('class/:classId/report')
+  @ApiOperation({ summary: 'Printable progress report: accuracy, weak topics, streaks (optional ?studentId=)' })
+  classReport(
+    @Param('classId') classId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('studentId') studentId?: string,
+  ) {
+    return this.analytics.classReport(classId, user, studentId);
   }
 
   @Get('problem/:problemId')

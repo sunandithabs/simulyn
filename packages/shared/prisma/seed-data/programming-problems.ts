@@ -522,4 +522,131 @@ export const PROGRAMMING_PROBLEMS: SeedProgrammingProblem[] = [
       { input: '[2,3,4,5,18,17,6]', expected: '17', isHidden: true },
     ],
   },
+
+  {
+    title: 'Climbing Stairs',
+    difficulty: 'EASY',
+    category: 'Dynamic Programming',
+    points: 100,
+    tags: ['dp','math'],
+    description: 'You can climb `1` or `2` steps at a time. Return the number of distinct ways to reach the top of a staircase with `n` steps.',
+    constraints: ['1 <= n <= 45'],
+    examples: [
+      { input: 'n = 2', output: '2' },
+      { input: 'n = 3', output: '3' },
+    ],
+    harness: { funcName: 'climbStairs', params: [{ name: 'n', type: 'int' }], returnType: 'int' },
+    starterCode: {
+      python: 'def climbStairs(n):\n    # Write your solution here\n    pass\n',
+      javascript: 'function climbStairs(n) {\n  // Write your solution here\n}\n',
+      cpp: 'class Solution {\npublic:\n    int climbStairs(int n) {\n        // Write your solution here\n        return 0;\n    }\n};\n',
+      java: 'class Solution {\n    public int climbStairs(int n) {\n        // Write your solution here\n        return 0;\n    }\n}\n',
+    },
+    hints: [
+      'Think about the last move: it was either a 1-step or a 2-step.',
+      'ways(n) = ways(n-1) + ways(n-2).',
+      'Keep only the previous two values for O(1) space.',
+    ],
+    testCases: [
+      { input: '2', expected: '2' },
+      { input: '3', expected: '3' },
+      { input: '5', expected: '8' },
+      { input: '10', expected: '89', isHidden: true },
+      { input: '45', expected: '1836311903', isHidden: true },
+    ],
+  },
+
+  {
+    title: 'Contains Duplicate',
+    difficulty: 'EASY',
+    category: 'Arrays',
+    points: 100,
+    tags: ['array','hash-table'],
+    description: 'Given an integer array `nums`, return `true` if any value appears at least twice, otherwise `false`.',
+    constraints: ['1 <= nums.length <= 10^5'],
+    examples: [
+      { input: 'nums = [1,2,3,1]', output: 'true' },
+      { input: 'nums = [1,2,3,4]', output: 'false' },
+    ],
+    harness: { funcName: 'containsDuplicate', params: [{ name: 'nums', type: 'intArray' }], returnType: 'bool' },
+    starterCode: {
+      python: 'def containsDuplicate(nums):\n    # Write your solution here\n    pass\n',
+      javascript: 'function containsDuplicate(nums) {\n  // Write your solution here\n}\n',
+      cpp: 'class Solution {\npublic:\n    bool containsDuplicate(vector<int>& nums) {\n        // Write your solution here\n        return false;\n    }\n};\n',
+      java: 'class Solution {\n    public boolean containsDuplicate(int[] nums) {\n        // Write your solution here\n        return false;\n    }\n}\n',
+    },
+    hints: [
+      'Comparing every pair is O(n²).',
+      'What structure answers "have I seen this?" in O(1)?',
+      'Insert into a hash set; if the value is already present, return true.',
+    ],
+    testCases: [
+      { input: '[1,2,3,1]', expected: 'true' },
+      { input: '[1,2,3,4]', expected: 'false' },
+      { input: '[1]', expected: 'false', isHidden: true },
+      { input: '[5,5]', expected: 'true', isHidden: true },
+    ],
+  },
+
+  {
+    title: 'Maximum Subarray',
+    difficulty: 'MEDIUM',
+    category: 'Dynamic Programming',
+    points: 150,
+    tags: ['array','dp','kadane'],
+    description: 'Given an integer array `nums`, return the largest sum of any non-empty contiguous subarray.',
+    constraints: ['1 <= nums.length <= 10^5'],
+    examples: [
+      { input: 'nums = [-2,1,-3,4,-1,2,1,-5,4]', output: '6' },
+    ],
+    harness: { funcName: 'maxSubArray', params: [{ name: 'nums', type: 'intArray' }], returnType: 'int' },
+    starterCode: {
+      python: 'def maxSubArray(nums):\n    # Write your solution here\n    pass\n',
+      javascript: 'function maxSubArray(nums) {\n  // Write your solution here\n}\n',
+      cpp: 'class Solution {\npublic:\n    int maxSubArray(vector<int>& nums) {\n        // Write your solution here\n        return 0;\n    }\n};\n',
+      java: 'class Solution {\n    public int maxSubArray(int[] nums) {\n        // Write your solution here\n        return 0;\n    }\n}\n',
+    },
+    hints: [
+      'A subarray ending at index i either extends the previous one or starts fresh.',
+      'best_ending_here = max(x, best_ending_here + x).',
+      'Track the global maximum as you scan (Kadane’s algorithm).',
+    ],
+    testCases: [
+      { input: '[-2,1,-3,4,-1,2,1,-5,4]', expected: '6' },
+      { input: '[1]', expected: '1' },
+      { input: '[5,4,-1,7,8]', expected: '23' },
+      { input: '[-3,-1,-2]', expected: '-1', isHidden: true },
+    ],
+  },
+
+  {
+    title: 'Missing Number',
+    difficulty: 'EASY',
+    category: 'Arrays',
+    points: 100,
+    tags: ['array','math','bit-manipulation'],
+    description: 'Given an array `nums` containing `n` distinct numbers in the range `[0, n]`, return the one number missing from the range.',
+    constraints: ['1 <= n <= 10^4'],
+    examples: [
+      { input: 'nums = [3,0,1]', output: '2' },
+    ],
+    harness: { funcName: 'missingNumber', params: [{ name: 'nums', type: 'intArray' }], returnType: 'int' },
+    starterCode: {
+      python: 'def missingNumber(nums):\n    # Write your solution here\n    pass\n',
+      javascript: 'function missingNumber(nums) {\n  // Write your solution here\n}\n',
+      cpp: 'class Solution {\npublic:\n    int missingNumber(vector<int>& nums) {\n        // Write your solution here\n        return 0;\n    }\n};\n',
+      java: 'class Solution {\n    public int missingNumber(int[] nums) {\n        // Write your solution here\n        return 0;\n    }\n}\n',
+    },
+    hints: [
+      'Which numbers should be present if none were missing?',
+      'The sum 0..n is n(n+1)/2.',
+      'Missing = expected sum − actual sum (or XOR all indices and values).',
+    ],
+    testCases: [
+      { input: '[3,0,1]', expected: '2' },
+      { input: '[0,1]', expected: '2' },
+      { input: '[9,6,4,2,3,5,7,0,1]', expected: '8', isHidden: true },
+      { input: '[0]', expected: '1', isHidden: true },
+    ],
+  },
 ];

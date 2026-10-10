@@ -202,7 +202,7 @@ export class ClassesService {
 
   /** Student self-enrolls with the class join code. */
   async join(code: string, requester: AuthenticatedUser): Promise<ClassWithCounts> {
-    const cls = await this.prisma.class.findUnique({ where: { code: code.toUpperCase() } });
+    const cls = await this.prisma.class.findUnique({ where: { code: code.trim().toUpperCase() } });
     if (!cls) throw new NotFoundException('No class matches that code');
     if (cls.isArchived) throw new BadRequestException('That class has been archived');
     if (cls.teacherId === requester.id) {
@@ -214,7 +214,14 @@ export class ClassesService {
     });
     if (existing > 0) throw new BadRequestException('You are already enrolled in this class');
 
-    await this.prisma.enrollment.create({ data: { classId: cls.id, userId: requester.id } });
+    try {
+      await this.prisma.enrollment.create({ data: { classId: cls.id, userId: requester.id } });
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') {
+        throw new BadRequestException('You are already enrolled in this class');
+      }
+      throw e;
+    }
     this.logger.log(`${requester.username} joined ${cls.name}`);
 
     return this.prisma.class.findUniqueOrThrow({ where: { id: cls.id }, select: CLASS_SELECT });

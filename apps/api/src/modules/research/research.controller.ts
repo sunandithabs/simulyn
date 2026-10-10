@@ -3,12 +3,13 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@simulyn/shared';
 import archiver from 'archiver';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { ResearchInsightsService } from './research-insights.service';
 import { ResearchService } from './research.service';
 
 export class ConsentDto {
@@ -18,7 +19,7 @@ export class ConsentDto {
 
 export class SurveyDto {
   @IsArray()
-  @ArrayMinSize(10)
+  @ArrayMinSize(3)
   @ArrayMaxSize(10)
   @IsInt({ each: true })
   @Min(1, { each: true })
@@ -27,6 +28,7 @@ export class SurveyDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   freeText?: string;
 }
 
@@ -34,7 +36,10 @@ export class SurveyDto {
 @ApiBearerAuth()
 @Controller('research')
 export class ResearchController {
-  constructor(private readonly research: ResearchService) {}
+  constructor(
+    private readonly research: ResearchService,
+    private readonly insights: ResearchInsightsService,
+  ) {}
 
   @Get('status')
   @ApiOperation({ summary: 'Whether the current user has given consent / taken the survey' })
@@ -56,6 +61,20 @@ export class ResearchController {
   @ApiOperation({ summary: 'Submit the exit System Usability Scale survey' })
   survey(@Body() dto: SurveyDto, @CurrentUser() user: AuthenticatedUser) {
     return this.research.recordSurvey(user.id, dto.susAnswers, dto.freeText);
+  }
+
+  @Get('admin/summary')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'SUS + usage statistics for real participants (demo accounts excluded)' })
+  adminSummary() {
+    return this.insights.summary();
+  }
+
+  @Get('admin/feedback')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Every SUS response and free-text comment from real participants' })
+  adminFeedback() {
+    return this.insights.feedback();
   }
 
   @Post('export')

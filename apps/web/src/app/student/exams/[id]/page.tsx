@@ -14,12 +14,16 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { CodeEditor } from '@/components/problem/code-editor';
+const CodeEditor = dynamic(() => import('@/components/problem/code-editor').then((m) => m.CodeEditor), {
+  ssr: false,
+  loading: () => <div className="h-full min-h-64 w-full animate-pulse rounded-lg bg-white/5" />,
+});
 import { ProblemBrief } from '@/components/problem/problem-brief';
 import { CustomRunPanel, TestResults } from '@/components/problem/results-panel';
 import { Badge } from '@/components/ui/badge';

@@ -19,7 +19,9 @@ import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { ExecutionModule } from './modules/execution/execution.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
+import { HackathonsModule } from './modules/hackathons/hackathons.module';
 import { MentorModule } from './modules/mentor/mentor.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProblemsModule } from './modules/problems/problems.module';
 import { ProctoringModule } from './modules/proctoring/proctoring.module';
 import { ResearchModule } from './modules/research/research.module';
@@ -45,6 +47,8 @@ import { UsersModule } from './modules/users/users.module';
     GamificationModule,
     SubmissionsModule,
     ExamsModule,
+    NotificationsModule,
+    HackathonsModule,
     ProctoringModule,
     MentorModule,
     AnalyticsModule,
