@@ -1,5 +1,6 @@
 'use client';
 
+import { PasswordInput } from '@/components/password-input';
 import { motion } from 'framer-motion';
 import { AlertCircle, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -75,8 +76,8 @@ export default function ChangePasswordPage() {
 
         <form className="mt-6 space-y-4" onSubmit={submit}>
           <Field label="Temporary password">
-            <Input
-              type="password"
+            <PasswordInput
+              
               value={oldPassword}
               onChange={(event) => setOldPassword(event.target.value)}
               autoComplete="current-password"
@@ -85,8 +86,8 @@ export default function ChangePasswordPage() {
           </Field>
 
           <Field label="New password" hint="At least 6 characters.">
-            <Input
-              type="password"
+            <PasswordInput
+              
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
@@ -96,8 +97,8 @@ export default function ChangePasswordPage() {
           </Field>
 
           <Field label="Confirm new password">
-            <Input
-              type="password"
+            <PasswordInput
+              
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"

@@ -1,5 +1,6 @@
 'use client';
 
+import { PasswordInput } from '@/components/password-input';
 import { motion } from 'framer-motion';
 import { AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
@@ -123,8 +124,8 @@ export default function LoginPage() {
               </Field>
 
               <Field label="Password">
-                <Input
-                  type="password"
+                <PasswordInput
+                  
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"

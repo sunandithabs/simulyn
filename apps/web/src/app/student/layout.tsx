@@ -1,5 +1,6 @@
 'use client';
 
+import { JoinPrompt } from '@/components/class/join-prompt';
 import {
   CircuitBoard,
   ClipboardList,
@@ -41,6 +42,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   return (
     <LockdownProvider>
       <AppShell role="STUDENT" nav={NAV}>
+        <JoinPrompt />
         {children}
       </AppShell>
     </LockdownProvider>

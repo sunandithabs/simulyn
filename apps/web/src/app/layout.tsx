@@ -54,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="relative z-10">{children}</div>
             <ConsentGate />
             <Toaster
+              closeButton
               position="bottom-right"
               toastOptions={{
                 style: {

@@ -1,5 +1,6 @@
 'use client';
 
+import { PasswordInput } from '@/components/password-input';
 import { motion } from 'framer-motion';
 import { AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
@@ -114,8 +115,8 @@ export default function SignupPage() {
                 />
               </Field>
               <Field label="Password">
-                <Input
-                  type="password"
+                <PasswordInput
+                  
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
@@ -124,8 +125,8 @@ export default function SignupPage() {
                 />
               </Field>
               <Field label="Confirm password">
-                <Input
-                  type="password"
+                <PasswordInput
+                  
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   autoComplete="new-password"

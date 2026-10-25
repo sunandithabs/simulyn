@@ -3,6 +3,7 @@ import { Role } from '@simulyn/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { ANALYTICS_EXCLUDED_USERNAMES } from '../../common/constants';
 
 function toCsv(rows: Record<string, unknown>[]): string {
   if (rows.length === 0) return '';
@@ -96,7 +97,7 @@ export class ResearchService {
   async exportStudyData(requester: AuthenticatedUser) {
     assertResearcher(requester);
 
-    const [users, submissions, testResults, violations, examAttempts, consents, surveys] =
+    const [allUsers, allSubmissions, allTestResults, allViolations, allExamAttempts, allConsents, allSurveys] =
       await Promise.all([
         this.prisma.user.findMany({ select: { id: true, role: true, createdAt: true } }),
         this.prisma.submission.findMany({
@@ -144,6 +145,23 @@ export class ResearchService {
           select: { userId: true, kind: true, susAnswers: true, susScore: true, quickScore: true, freeText: true },
         }),
       ]);
+
+    const skip = new Set(
+      (
+        await this.prisma.user.findMany({
+          where: { username: { in: ANALYTICS_EXCLUDED_USERNAMES } },
+          select: { id: true },
+        })
+      ).map((u) => u.id),
+    );
+    const users = allUsers.filter((u) => !skip.has(u.id));
+    const submissions = allSubmissions.filter((s) => !skip.has(s.userId));
+    const keptSubs = new Set(submissions.map((s) => s.id));
+    const testResults = allTestResults.filter((t) => keptSubs.has(t.submissionId));
+    const violations = allViolations.filter((v) => !skip.has(v.userId));
+    const examAttempts = allExamAttempts.filter((a) => !skip.has(a.userId));
+    const consents = allConsents.filter((c) => !skip.has(c.userId));
+    const surveys = allSurveys.filter((s) => !skip.has(s.userId));
 
     // Pseudonym map: pXXX in a stable but arbitrary order per export.
     const idMap = new Map<string, string>();

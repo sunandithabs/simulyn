@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { playChime } from '@/lib/chime';
 
 import { DiscussionThread } from '@/components/discussion/DiscussionThread';
 import { PageTransition } from '@/components/layout/app-shell';
@@ -237,6 +238,7 @@ export default function ProblemSolverPage() {
       setErrorText(result.compileError ?? '');
       if (result.passed) {
         toast.success(`Accepted. We are so back. ${result.score} points`);
+        playChime();
         if (result.reward?.xpAwarded) {
           toast.success(`+${result.reward.xpAwarded} XP`, {
             description: result.reward.leveledUp ? `Level ${result.reward.level} reached` : undefined,

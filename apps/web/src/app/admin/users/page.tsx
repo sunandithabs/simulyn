@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  KeyRound,
   AlertTriangle,
   Ban,
   Check,
@@ -69,6 +70,21 @@ function UsersTable() {
 
   useEffect(load, [load]);
   useEffect(() => setPage(1), [search, role, active]);
+
+  async function resetPassword(target: AdminUser) {
+    const next = window.prompt(`New temporary password for @${target.username} (min 6 chars):`);
+    if (!next) return;
+    if (next.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    try {
+      await api.patch(`/users/${target.id}`, { password: next });
+      toast.success("Password reset. They must change it at next sign-in.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not reset the password");
+    }
+  }
 
   async function impersonate(target: AdminUser) {
     if (
@@ -240,6 +256,15 @@ function UsersTable() {
                             onClick={() => setEditing(row)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Reset password"
+                            aria-label={`Reset password for ${row.displayName}`}
+                            onClick={() => void resetPassword(row)}
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
                           </Button>
                           {row.role !== 'ADMIN' && row.isActive ? (
                             <Button
