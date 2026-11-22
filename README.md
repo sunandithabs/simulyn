@@ -82,6 +82,8 @@ allowed through the firewall — the script prints the rule.
 
 ### Demo accounts
 
+Local development seed data only. The seed script refuses to run when `NODE_ENV=production`.
+
 | Role | Username | Password |
 |---|---|---|
 | Admin | `admin` | `admin123` |

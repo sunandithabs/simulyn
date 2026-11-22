@@ -137,6 +137,7 @@ const GAMIFICATION_SEED: Record<
 };
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') throw new Error('demo seed disabled in production, set ALLOW_DEMO_SEED=true to override');
   console.log('▸ Resetting database…');
   await reset();
 
