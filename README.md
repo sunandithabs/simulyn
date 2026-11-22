@@ -21,7 +21,6 @@ Real compilers · tolerance-checked circuits · live-proctored exams
 Students write code against real compilers, measure circuits, and sit timed exams their
 instructor can watch in real time.
 
-in real time.
 
 - **Students** solve problems in Python, JavaScript, C++ or Java against hidden test
   cases, answer tolerance-checked electronics questions, ask a Socratic AI mentor for
