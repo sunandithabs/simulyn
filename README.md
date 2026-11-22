@@ -343,3 +343,9 @@ Prisma renders most changes as a table rebuild, while PostgreSQL gets a plain
   reason.
 - **Verify before claiming done:** `pnpm build`, `pnpm lint`, `pnpm --filter web test`,
   and the five API suites against a running server, re-seeding between them.
+
+---
+
+## license
+
+mit. see [license](LICENSE).
