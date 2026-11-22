@@ -1,9 +1,26 @@
+<div align="center">
+
 # SIMULYN
 
-> **v2.0** is out. See the [changelog](CHANGELOG.md).
+**Virtual engineering labs for programming and electronics education.**
 
-Virtual engineering labs for programming and electronics education. Students write code
-against real compilers, measure circuits, and sit timed exams their instructor can watch
+Real compilers · tolerance-checked circuits · live-proctored exams
+
+![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+
+[Quick start](#quick-start) · [Stack](#tech-stack) · [Config](#environment-variables) · [Deploy](#deployment) · [Contribute](#contributing)
+
+</div>
+
+---
+
+Students write code against real compilers, measure circuits, and sit timed exams their
+instructor can watch in real time.
+
 in real time.
 
 - **Students** solve problems in Python, JavaScript, C++ or Java against hidden test
@@ -67,7 +84,7 @@ the browser where the API is, and the API's `CORS_ORIGIN` has to list the exact
 origin the browser reports — which is what the script keeps in step:
 
 ```bash
-pnpm setup:env --host=192.168.0.7   # skip the prompt
+pnpm setup:env --host=192.168.1.50   # skip the prompt
 pnpm setup:env --localhost          # this machine only
 ```
 
@@ -87,8 +104,8 @@ Local development seed data only. The seed script refuses to run when `NODE_ENV=
 | Role | Username | Password |
 |---|---|---|
 | Admin | `admin` | `admin123` |
-| Teacher | `dr.sunitha` | `teacher1` |
-| Students | `sunan`, `vivek`, `vahini`, `sanjan` | `student1` … `student4` |
+| Teacher | `teacher` | `teacher1` |
+| Students | `student1` … `student4` | `student1` … `student4` |
 
 Class **CSE 2026 Batch A**, join code `CSE2026A`, with all 15 seeded problems assigned.
 
