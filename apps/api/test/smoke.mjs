@@ -34,9 +34,9 @@ const login = async (username, password) => {
 const section = (t) => console.log(`\n── ${t}`);
 
 const admin = await login('admin', 'admin123');
-const teacher = await login('dr.sunitha', 'teacher1');
-const student = await login('sunan', 'student1');
-const student2 = await login('vivek', 'student2');
+const teacher = await login('teacher', 'teacher1');
+const student = await login('student1', 'student1');
+const student2 = await login('student2', 'student2');
 
 const problemsRes = await req('GET', '/problems?limit=100', { token: teacher.token });
 const P = {};
@@ -424,7 +424,7 @@ const v1 = await req('POST', '/proctoring/violations', {
   body: { examAttemptId: attempt2, typeKey: 'PASTE', codeSnapshot: 'print(1)', timeRemaining: 3200 },
 });
 check('violation recorded with catalogue weight', v1.status === 201 && v1.body.weight === 10 && v1.body.integrityScore === 90, JSON.stringify(v1.body).slice(0, 220));
-check('teacher alert message rendered', typeof v1.body.message === 'string' && v1.body.message.includes('Vivek'));
+check('teacher alert message rendered', typeof v1.body.message === 'string' && v1.body.message.includes('Student Two'));
 
 const v2 = await req('POST', '/proctoring/violations', {
   token: student2.token,
@@ -482,13 +482,13 @@ try {
   const joinStudent = await emit(studentSocket, 'join-exam', { examId });
   check('student joins the exam room', joinStudent.ok === true && joinStudent.attemptId === attempt2);
   const joinEvent = await joined;
-  check('teacher notified of the student joining', joinEvent.username === 'vivek', JSON.stringify(joinEvent).slice(0, 160));
+  check('teacher notified of the student joining', joinEvent.username === 'student2', JSON.stringify(joinEvent).slice(0, 160));
 
   const violationEvent = waitFor(teacherSocket, 'student-violation');
   const ack = await emit(studentSocket, 'violation', { examAttemptId: attempt2, typeKey: 'TABSWITCH', timeRemaining: 3000 });
   check('violation over the socket is acknowledged', ack.ok === true && ack.integrityScore === 50, JSON.stringify(ack));
   const received = await violationEvent;
-  check('teacher receives student-violation in real time', received.typeKey === 'TABSWITCH' && received.username === 'vivek' && received.integrityScore === 50, JSON.stringify(received).slice(0, 200));
+  check('teacher receives student-violation in real time', received.typeKey === 'TABSWITCH' && received.username === 'student2' && received.integrityScore === 50, JSON.stringify(received).slice(0, 200));
   check('violation carries the alert copy + severity', received.critical === true && received.message.includes('switched away'));
 
   const heartbeatEvent = waitFor(teacherSocket, 'student-heartbeat');
@@ -500,7 +500,7 @@ try {
   const disconnected = waitFor(teacherSocket, 'student-disconnected');
   studentSocket.disconnect();
   const gone = await disconnected;
-  check('teacher notified on disconnect', gone.username === 'vivek');
+  check('teacher notified on disconnect', gone.username === 'student2');
 
   // unauthenticated connection must be rejected
   await new Promise((resolve) => {

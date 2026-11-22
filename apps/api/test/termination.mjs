@@ -45,9 +45,9 @@ const login = async (username, password) => {
 const section = (t) => console.log(`\n── ${t}`);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const teacher = await login('dr.sunitha', 'teacher1');
-const sunan = await login('sunan', 'student1');
-const vivek = await login('vivek', 'student2');
+const teacher = await login('teacher', 'teacher1');
+const student1 = await login('student1', 'student1');
+const student2 = await login('student2', 'student2');
 
 const classId = (await req('GET', '/classes', { token: teacher.token })).body[0].id;
 const problems = (await req('GET', '/problems?limit=100', { token: teacher.token })).body.data;
@@ -73,13 +73,13 @@ const exam = await req('POST', '/exams', {
 check('exam created and active', exam.status === 201 && exam.body.status === 'ACTIVE');
 const examId = exam.body.id;
 
-const started = await req('POST', `/exams/${examId}/start`, { token: sunan.token });
+const started = await req('POST', `/exams/${examId}/start`, { token: student1.token });
 check('student starts the exam', started.status === 200, JSON.stringify(started.body).slice(0, 160));
 const attemptId = started.body.attemptId;
 
-const vivekStarted = await req('POST', `/exams/${examId}/start`, { token: vivek.token });
-check('second student starts the exam', vivekStarted.status === 200);
-const vivekAttemptId = vivekStarted.body.attemptId;
+const student2Started = await req('POST', `/exams/${examId}/start`, { token: student2.token });
+check('second student starts the exam', student2Started.status === 200);
+const student2AttemptId = student2Started.body.attemptId;
 
 // ── the violation threshold ─────────────────────────────────────────
 section(`automatic removal at ${FLAG_THRESHOLD} violations`);
@@ -87,7 +87,7 @@ section(`automatic removal at ${FLAG_THRESHOLD} violations`);
 let lastRecord = null;
 for (let i = 0; i < FLAG_THRESHOLD; i++) {
   lastRecord = await req('POST', '/proctoring/violations', {
-    token: sunan.token,
+    token: student1.token,
     body: { examAttemptId: attemptId, typeKey: 'TABSWITCH' },
   });
 }
@@ -101,15 +101,15 @@ check('and reports it terminated', lastRecord.body.terminated === true);
 check('justFlagged fires exactly once', lastRecord.body.justFlagged === true);
 
 const board = await req('GET', `/proctoring/exams/${examId}/live`, { token: teacher.token });
-const sunanRow = board.body.find((row) => row.attemptId === attemptId);
-check('the live board shows them removed', sunanRow?.terminated === true);
+const student1Row = board.body.find((row) => row.attemptId === attemptId);
+check('the live board shows them removed', student1Row?.terminated === true);
 check(
   'with an automatic reason and no proctor named',
-  typeof sunanRow?.terminatedReason === 'string' && sunanRow.terminatedBy === null,
-  JSON.stringify(sunanRow?.terminatedReason),
+  typeof student1Row?.terminatedReason === 'string' && student1Row.terminatedBy === null,
+  JSON.stringify(student1Row?.terminatedReason),
 );
 
-const blockedRestart = await req('POST', `/exams/${examId}/start`, { token: sunan.token });
+const blockedRestart = await req('POST', `/exams/${examId}/start`, { token: student1.token });
 check('a removed student cannot restart -> 403', blockedRestart.status === 403, `got ${blockedRestart.status}`);
 check(
   'and the refusal carries the reason',
@@ -117,11 +117,11 @@ check(
   JSON.stringify(blockedRestart.body?.message),
 );
 
-const blockedSubmit = await req('POST', `/exams/${examId}/submit`, { token: sunan.token, body: {} });
+const blockedSubmit = await req('POST', `/exams/${examId}/submit`, { token: student1.token, body: {} });
 check('a removed student cannot submit -> 403', blockedSubmit.status === 403, `got ${blockedSubmit.status}`);
 
 const blockedViolation = await req('POST', '/proctoring/violations', {
-  token: sunan.token,
+  token: student1.token,
   body: { examAttemptId: attemptId, typeKey: 'BLUR' },
 });
 check('further violations from them are refused -> 400', blockedViolation.status === 400);
@@ -139,12 +139,12 @@ check(
   String(readmitted.body.violationBaseline),
 );
 
-const resumed = await req('POST', `/exams/${examId}/start`, { token: sunan.token });
+const resumed = await req('POST', `/exams/${examId}/start`, { token: student1.token });
 check('the student can reopen the paper', resumed.status === 200, `got ${resumed.status}`);
 check('on the same attempt, not a fresh one', resumed.body.attemptId === attemptId);
 
 const afterReadmit = await req('POST', '/proctoring/violations', {
-  token: sunan.token,
+  token: student1.token,
   body: { examAttemptId: attemptId, typeKey: 'BLUR' },
 });
 check('a new violation is accepted again', afterReadmit.status === 201);
@@ -174,28 +174,28 @@ const broadcast = new Promise((resolve) => {
   setTimeout(() => resolve(null), 4000);
 });
 
-const removed = await req('POST', `/proctoring/attempts/${vivekAttemptId}/terminate`, {
+const removed = await req('POST', `/proctoring/attempts/${student2AttemptId}/terminate`, {
   token: teacher.token,
   body: { reason: 'Reading from a phone under the desk' },
 });
 check('teacher removes the student', removed.status === 200, JSON.stringify(removed.body).slice(0, 160));
-check('the proctor is named on the record', removed.body.by === 'dr.sunitha');
+check('the proctor is named on the record', removed.body.by === 'teacher');
 check('the stated reason is kept', removed.body.reason === 'Reading from a phone under the desk');
 
 const event = await broadcast;
-check('the proctor room is told in real time', event !== null && event.attemptId === vivekAttemptId);
+check('the proctor room is told in real time', event !== null && event.attemptId === student2AttemptId);
 check('the event carries the reason', event?.reason === 'Reading from a phone under the desk');
 
-const vivekBlocked = await req('POST', `/exams/${examId}/start`, { token: vivek.token });
-check('the removed student cannot restart -> 403', vivekBlocked.status === 403, `got ${vivekBlocked.status}`);
+const student2Blocked = await req('POST', `/exams/${examId}/start`, { token: student2.token });
+check('the removed student cannot restart -> 403', student2Blocked.status === 403, `got ${student2Blocked.status}`);
 
-const doubleRemove = await req('POST', `/proctoring/attempts/${vivekAttemptId}/terminate`, {
+const doubleRemove = await req('POST', `/proctoring/attempts/${student2AttemptId}/terminate`, {
   token: teacher.token,
   body: { reason: 'again' },
 });
 check('removing an already-removed student -> 400', doubleRemove.status === 400);
 
-const timeline = await req(`GET`, `/proctoring/attempts/${vivekAttemptId}/notes`, {
+const timeline = await req(`GET`, `/proctoring/attempts/${student2AttemptId}/notes`, {
   token: teacher.token,
 });
 check(
@@ -208,13 +208,13 @@ check(
 section('authorisation');
 
 const studentTerminate = await req('POST', `/proctoring/attempts/${attemptId}/terminate`, {
-  token: sunan.token,
+  token: student1.token,
   body: { reason: 'letting myself off' },
 });
 check('a student cannot remove anyone -> 403', studentTerminate.status === 403, `got ${studentTerminate.status}`);
 
-const studentReadmit = await req('POST', `/proctoring/attempts/${vivekAttemptId}/readmit`, {
-  token: vivek.token,
+const studentReadmit = await req('POST', `/proctoring/attempts/${student2AttemptId}/readmit`, {
+  token: student2.token,
 });
 check('a student cannot readmit themselves -> 403', studentReadmit.status === 403, `got ${studentReadmit.status}`);
 

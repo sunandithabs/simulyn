@@ -26,8 +26,8 @@ const login = async (u, p) => {
   return { token: r.body.accessToken, user: r.body.user };
 };
 
-const student = await login('sunan', 'student1');
-const teacher = await login('dr.sunitha', 'teacher1');
+const student = await login('student1', 'student1');
+const teacher = await login('teacher', 'teacher1');
 
 const problems = (await req('GET', '/problems?limit=100', { token: teacher.token })).body.data;
 const twoSum = problems.find((p) => p.title === 'Two Sum');

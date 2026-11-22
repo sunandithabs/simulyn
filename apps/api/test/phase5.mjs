@@ -38,10 +38,10 @@ const login = async (username, password) => {
 
 const section = (t) => console.log(`\n── ${t}`);
 
-const teacher = await login('dr.sunitha', 'teacher1');
+const teacher = await login('teacher', 'teacher1');
 const admin = await login('admin', 'admin123');
-const sunan = await login('sunan', 'student1');
-const vivek = await login('vivek', 'student2');
+const student1 = await login('student1', 'student1');
+const student2 = await login('student2', 'student2');
 
 const problems = (await req('GET', '/problems?limit=100', { token: teacher.token })).body.data;
 const P = Object.fromEntries(problems.map((p) => [p.title, p]));
@@ -51,11 +51,11 @@ const classId = (await req('GET', '/classes', { token: teacher.token })).body[0]
 section('discussions');
 const twoSum = P['Two Sum'];
 
-const empty = await req('GET', `/problems/${twoSum.id}/discussions`, { token: sunan.token });
+const empty = await req('GET', `/problems/${twoSum.id}/discussions`, { token: student1.token });
 check('GET thread on a fresh problem', empty.status === 200 && Array.isArray(empty.body));
 
 const root = await req('POST', `/problems/${twoSum.id}/discussions`, {
-  token: sunan.token,
+  token: student1.token,
   body: { content: 'Is the hash map approach the intended one? I got O(n).' },
 });
 check('student posts to the thread', root.status === 201 && root.body.isAuthor === true, JSON.stringify(root.body).slice(0, 160));
@@ -66,23 +66,23 @@ const reply = await req('POST', `/problems/${twoSum.id}/discussions`, {
 });
 check('teacher replies to it', reply.status === 201 && reply.body.parentId === root.body.id);
 
-const threaded = await req('GET', `/problems/${twoSum.id}/discussions`, { token: sunan.token });
+const threaded = await req('GET', `/problems/${twoSum.id}/discussions`, { token: student1.token });
 check('replies nest under their parent', threaded.body.length === 1 && threaded.body[0].replies.length === 1, JSON.stringify(threaded.body.map((p) => p.replies.length)));
 check('author role exposed for the badge', threaded.body[0].replies[0].author.role === 'TEACHER');
 
-const up1 = await req('POST', `/discussions/${root.body.id}/upvote`, { token: vivek.token });
+const up1 = await req('POST', `/discussions/${root.body.id}/upvote`, { token: student2.token });
 check('upvote registers', up1.body.upvotes === 1 && up1.body.hasUpvoted === true, JSON.stringify(up1.body));
-const up2 = await req('POST', `/discussions/${root.body.id}/upvote`, { token: vivek.token });
+const up2 = await req('POST', `/discussions/${root.body.id}/upvote`, { token: student2.token });
 check('a second press removes the vote', up2.body.upvotes === 0 && up2.body.hasUpvoted === false, JSON.stringify(up2.body));
-await req('POST', `/discussions/${root.body.id}/upvote`, { token: vivek.token });
-const up3 = await req('POST', `/discussions/${root.body.id}/upvote`, { token: sunan.token });
+await req('POST', `/discussions/${root.body.id}/upvote`, { token: student2.token });
+const up3 = await req('POST', `/discussions/${root.body.id}/upvote`, { token: student1.token });
 check('one vote per account, counted once each', up3.body.upvotes === 2, JSON.stringify(up3.body));
 
-const asVivek = await req('GET', `/problems/${twoSum.id}/discussions`, { token: vivek.token });
-check('hasUpvoted is per viewer', asVivek.body[0].hasUpvoted === true);
+const asStudent2 = await req('GET', `/problems/${twoSum.id}/discussions`, { token: student2.token });
+check('hasUpvoted is per viewer', asStudent2.body[0].hasUpvoted === true);
 
 const studentPin = await req('PATCH', `/discussions/${root.body.id}`, {
-  token: vivek.token,
+  token: student2.token,
   body: { isPinned: true },
 });
 check('students cannot pin -> 403', studentPin.status === 403, `got ${studentPin.status}`);
@@ -94,29 +94,29 @@ const pinned = await req('PATCH', `/discussions/${root.body.id}`, {
 check('teacher pins a post', pinned.status === 200 && pinned.body.isPinned === true);
 
 const editOther = await req('PATCH', `/discussions/${root.body.id}`, {
-  token: vivek.token,
+  token: student2.token,
   body: { content: 'hijacked' },
 });
 check('only the author may edit -> 403', editOther.status === 403, `got ${editOther.status}`);
 
 const spam = await req('POST', `/problems/${twoSum.id}/discussions`, {
-  token: vivek.token,
+  token: student2.token,
   body: { content: 'delete me' },
 });
 const del = await req('DELETE', `/discussions/${spam.body.id}`, { token: teacher.token });
 check('teacher soft-deletes a post', del.status === 200 && del.body.success === true);
-const afterDelete = await req('GET', `/problems/${twoSum.id}/discussions`, { token: sunan.token });
+const afterDelete = await req('GET', `/problems/${twoSum.id}/discussions`, { token: student1.token });
 check('deleted root with no replies drops out of the thread', afterDelete.body.length === 1, `${afterDelete.body.length} roots`);
 
 // ── teacher tooling ─────────────────────────────────────────────────
 section('teacher tooling');
-const lookup = await req('GET', '/users/lookup?q=viv', { token: teacher.token });
-check('student lookup finds a match', lookup.status === 200 && lookup.body.some((u) => u.username === 'vivek'), JSON.stringify(lookup.body).slice(0, 140));
+const lookup = await req('GET', '/users/lookup?q=student2', { token: teacher.token });
+check('student lookup finds a match', lookup.status === 200 && lookup.body.some((u) => u.username === 'student2'), JSON.stringify(lookup.body).slice(0, 140));
 const shortQuery = await req('GET', '/users/lookup?q=v', { token: teacher.token });
 check('a one-character query returns nothing', shortQuery.body.length === 0);
-const studentLookup = await req('GET', '/users/lookup?q=viv', { token: sunan.token });
+const studentLookup = await req('GET', '/users/lookup?q=student2', { token: student1.token });
 check('students cannot use the lookup -> 403', studentLookup.status === 403, `got ${studentLookup.status}`);
-check('lookup never returns staff accounts', (await req('GET', '/users/lookup?q=sunitha', { token: teacher.token })).body.length === 0);
+check('lookup never returns staff accounts', (await req('GET', '/users/lookup?q=teacher', { token: teacher.token })).body.length === 0);
 
 const newClass = await req('POST', '/classes', {
   token: teacher.token,
@@ -127,7 +127,7 @@ const labId = newClass.body.id;
 
 const enrolled = await req('POST', `/classes/${labId}/enroll`, {
   token: teacher.token,
-  body: { userIds: [sunan.user.id, vivek.user.id] },
+  body: { userIds: [student1.user.id, student2.user.id] },
 });
 check('enrolls the students found by lookup', enrolled.body.enrolled === 2, JSON.stringify(enrolled.body));
 
@@ -195,20 +195,20 @@ const teacherView = await req('GET', `/exams/${examId}`, { token: teacher.token 
 check('teacher sees the paper', teacherView.body.problems?.length === 2);
 check('per-problem points override applied', teacherView.body.problems.some((p) => p.points === 120));
 
-const beforeStart = await req('GET', `/exams/${examId}`, { token: sunan.token });
+const beforeStart = await req('GET', `/exams/${examId}`, { token: student1.token });
 check('student sees the schedule but not the paper', beforeStart.body.problems === null);
 
-const started = await req('POST', `/exams/${examId}/start`, { token: sunan.token });
+const started = await req('POST', `/exams/${examId}/start`, { token: student1.token });
 check('student starts and receives questions', started.status === 200 && started.body.questions.length === 2);
 check('deadline is start + duration', Math.abs(new Date(started.body.endsAt) - new Date(started.body.startedAt) - 30 * 60_000) < 2000, started.body.endsAt);
 const attemptId = started.body.attemptId;
 
-const started2 = await req('POST', `/exams/${examId}/start`, { token: vivek.token });
+const started2 = await req('POST', `/exams/${examId}/start`, { token: student2.token });
 const attempt2 = started2.body.attemptId;
 check('second student gets their own attempt', attempt2 !== attemptId);
 
 const answer = await req('POST', '/submissions', {
-  token: sunan.token,
+  token: student1.token,
   body: {
     problemId: authored.body.id,
     code: 'def tripleIt(n):\n    return n * 3',
@@ -222,7 +222,7 @@ check('exam answers pay no XP', answer.body.reward === null);
 // ── proctoring ──────────────────────────────────────────────────────
 section('proctoring');
 const paste = await req('POST', '/proctoring/violations', {
-  token: sunan.token,
+  token: student1.token,
   body: { examAttemptId: attemptId, typeKey: 'PASTE', codeSnapshot: 'def tripleIt(n):', timeRemaining: 1500 },
 });
 check('student client reports a violation', paste.status === 201 && paste.body.integrityScore === 90);
@@ -235,10 +235,10 @@ check('proctor records a note', flagged.status === 201 && flagged.body.typeKey =
 check('notes carry zero weight', flagged.body.weight === 0 && flagged.body.integrityScore === 90, JSON.stringify(flagged.body).slice(0, 160));
 
 const notes = await req('GET', `/proctoring/attempts/${attemptId}/notes`, { token: teacher.token });
-check('notes read back with their author', notes.body.length === 1 && notes.body[0].note.startsWith('Looked off-screen') && notes.body[0].by === 'dr.sunitha', JSON.stringify(notes.body));
+check('notes read back with their author', notes.body.length === 1 && notes.body[0].note.startsWith('Looked off-screen') && notes.body[0].by === 'teacher', JSON.stringify(notes.body));
 
 const studentFlag = await req('POST', `/proctoring/attempts/${attemptId}/flag`, {
-  token: vivek.token,
+  token: student2.token,
   body: { note: 'nope' },
 });
 check('students cannot record notes -> 403', studentFlag.status === 403, `got ${studentFlag.status}`);
@@ -273,7 +273,7 @@ try {
   const join = await emit(proctorSocket, 'join-exam', { examId });
   check('proctor joins and receives the board', join.ok === true && join.board.length === 2);
 
-  studentSocket = await connect(sunan.token);
+  studentSocket = await connect(student1.token);
   await emit(studentSocket, 'join-exam', { examId, attemptId });
 
   const heartbeatEvent = waitFor(proctorSocket, 'student-heartbeat');
@@ -305,23 +305,23 @@ try {
 
 // ── results & export ────────────────────────────────────────────────
 section('results');
-const submitted = await req('POST', `/exams/${examId}/submit`, { token: sunan.token, body: {} });
+const submitted = await req('POST', `/exams/${examId}/submit`, { token: student1.token, body: {} });
 check('student submits the exam', submitted.status === 200 && submitted.body.totalScore === 80, JSON.stringify(submitted.body));
 
 const results = await req('GET', `/exams/${examId}/results`, { token: teacher.token });
 check('results summary counts attempts', results.body.summary.started === 2 && results.body.summary.submitted === 1, JSON.stringify(results.body.summary));
 check('max score honours the points override', results.body.exam.maxScore === 120 + 80, `${results.body.exam.maxScore}`);
 check('rows carry every CSV column', ['totalScore', 'percentage', 'integrityScore', 'violationCount', 'timeTakenMin', 'autoSubmitted'].every((key) => key in results.body.attempts[0]));
-check('integrity reflects the violations', results.body.attempts.find((a) => a.user.username === 'sunan').integrityScore === 65);
+check('integrity reflects the violations', results.body.attempts.find((a) => a.user.username === 'student1').integrityScore === 65);
 
 const attemptDetail = await req('GET', `/exams/${examId}/attempts/${attemptId}`, { token: teacher.token });
 check('attempt detail exposes code for staff', attemptDetail.body.submissions[0].code?.includes('return n * 3'));
 check('violation timeline attached', attemptDetail.body.violations.length === 4, `${attemptDetail.body.violations.length}`);
 
-const studentPeek = await req('GET', `/exams/${examId}/attempts/${attempt2}`, { token: sunan.token });
+const studentPeek = await req('GET', `/exams/${examId}/attempts/${attempt2}`, { token: student1.token });
 check('a student cannot read another attempt -> 403', studentPeek.status === 403, `got ${studentPeek.status}`);
 
-const ownAttempt = await req('GET', `/exams/${examId}/attempts/${attemptId}`, { token: sunan.token });
+const ownAttempt = await req('GET', `/exams/${examId}/attempts/${attemptId}`, { token: student1.token });
 check('a student can read their own attempt', ownAttempt.status === 200);
 check('code withheld from the student view', ownAttempt.body.submissions[0].code === undefined);
 
@@ -336,8 +336,8 @@ check('classroom insights returns stats even without an LLM', insights.status ==
 section('cleanup');
 const delExam = await req('DELETE', `/exams/${examId}`, { token: teacher.token });
 check('an exam with attempts refuses deletion', delExam.status === 400, `got ${delExam.status}`);
-await req('DELETE', `/classes/${labId}/students/${sunan.user.id}`, { token: teacher.token });
-await req('DELETE', `/classes/${labId}/students/${vivek.user.id}`, { token: teacher.token });
+await req('DELETE', `/classes/${labId}/students/${student1.user.id}`, { token: teacher.token });
+await req('DELETE', `/classes/${labId}/students/${student2.user.id}`, { token: teacher.token });
 void admin;
 
 console.log(`\n${pass} passed, ${fail} failed`);

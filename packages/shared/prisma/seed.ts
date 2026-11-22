@@ -84,42 +84,42 @@ const ACCOUNTS: SeedAccount[] = [
     mustChangePassword: false,
   },
   {
-    username: 'dr.sunitha',
+    username: 'teacher',
     password: 'teacher1',
-    email: 'sunitha@simulyn.edu',
-    displayName: 'Dr. Sunitha K',
+    email: 'teacher@simulyn.edu',
+    displayName: 'Demo Teacher',
     role: 'TEACHER',
     mustChangePassword: false,
   },
   {
-    username: 'sunan',
+    username: 'student1',
     password: 'student1',
-    email: 'sunan@simulyn.edu',
-    displayName: 'Sunan R',
+    email: 'student1@simulyn.edu',
+    displayName: 'Student One',
     role: 'STUDENT',
     mustChangePassword: false,
   },
   {
-    username: 'vivek',
+    username: 'student2',
     password: 'student2',
-    email: 'vivek@simulyn.edu',
-    displayName: 'Vivek M',
+    email: 'student2@simulyn.edu',
+    displayName: 'Student Two',
     role: 'STUDENT',
     mustChangePassword: false,
   },
   {
-    username: 'vahini',
+    username: 'student3',
     password: 'student3',
-    email: 'vahini@simulyn.edu',
-    displayName: 'Vahini S',
+    email: 'student3@simulyn.edu',
+    displayName: 'Student Three',
     role: 'STUDENT',
     mustChangePassword: false,
   },
   {
-    username: 'sanjan',
+    username: 'student4',
     password: 'student4',
-    email: 'sanjan@simulyn.edu',
-    displayName: 'Sanjan P',
+    email: 'student4@simulyn.edu',
+    displayName: 'Student Four',
     role: 'STUDENT',
     mustChangePassword: false,
   },
@@ -130,10 +130,10 @@ const GAMIFICATION_SEED: Record<
   string,
   { xp: number; currentStreak: number; longestStreak: number; problemsSolved: number; lastActiveDaysAgo: number }
 > = {
-  sunan: { xp: 3200, currentStreak: 12, longestStreak: 21, problemsSolved: 9, lastActiveDaysAgo: 0 },
-  vivek: { xp: 1450, currentStreak: 4, longestStreak: 9, problemsSolved: 5, lastActiveDaysAgo: 1 },
-  vahini: { xp: 6200, currentStreak: 21, longestStreak: 24, problemsSolved: 13, lastActiveDaysAgo: 0 },
-  sanjan: { xp: 620, currentStreak: 1, longestStreak: 3, problemsSolved: 2, lastActiveDaysAgo: 2 },
+  student1: { xp: 3200, currentStreak: 12, longestStreak: 21, problemsSolved: 9, lastActiveDaysAgo: 0 },
+  student2: { xp: 1450, currentStreak: 4, longestStreak: 9, problemsSolved: 5, lastActiveDaysAgo: 1 },
+  student3: { xp: 6200, currentStreak: 21, longestStreak: 24, problemsSolved: 13, lastActiveDaysAgo: 0 },
+  student4: { xp: 620, currentStreak: 1, longestStreak: 3, problemsSolved: 2, lastActiveDaysAgo: 2 },
 };
 
 async function main() {
@@ -160,7 +160,7 @@ async function main() {
     users[account.username] = { id: user.id, role: user.role };
   }
 
-  const teacher = users['dr.sunitha'];
+  const teacher = users['teacher'];
   const studentUsernames = ACCOUNTS.filter((a) => a.role === 'STUDENT').map((a) => a.username);
 
   // ── Class & enrollment ─────────────────────────────────────────────

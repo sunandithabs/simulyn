@@ -20,11 +20,11 @@ const ROLES: { value: Role; label: string }[] = [
 
 const DEMO_ACCOUNTS: Record<Role, { name: string; username: string; password: string }[]> = {
   STUDENT: [
-    { name: 'Sunan', username: 'sunan', password: 'student1' },
-    { name: 'Sanjan', username: 'sanjan', password: 'student4' },
-    { name: 'Vahini', username: 'vahini', password: 'student3' },
+    { name: 'Student One', username: 'student1', password: 'student1' },
+    { name: 'Student Four', username: 'student4', password: 'student4' },
+    { name: 'Student Three', username: 'student3', password: 'student3' },
   ],
-  TEACHER: [{ name: 'Dr. Sunitha', username: 'dr.sunitha', password: 'teacher1' }],
+  TEACHER: [{ name: 'Demo Teacher', username: 'teacher', password: 'teacher1' }],
   ADMIN: [{ name: 'Administrator', username: 'admin', password: 'admin123' }],
 };
 
@@ -115,7 +115,7 @@ export default function LoginPage() {
                 <Input
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  placeholder="sunan"
+                  placeholder="student1"
                   autoComplete="username"
                   autoFocus
                   required

@@ -63,9 +63,9 @@ async function main() {
   });
   void admin;
   const teacher = await ensureUser({
-    username: 'dr.sunitha',
-    email: 'sunitha@simulyn.edu',
-    displayName: 'Dr. Sunitha K',
+    username: 'teacher',
+    email: 'teacher@simulyn.edu',
+    displayName: 'Demo Teacher',
     role: 'TEACHER',
     envVar: 'BOOTSTRAP_TEACHER_PASSWORD',
   });
